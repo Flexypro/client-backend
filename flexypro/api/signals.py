@@ -54,7 +54,8 @@ def create_notification_chat(instance, **kwargs):
         sender = instance.sender
         Notification.objects.create(
             user = receiver,
-            message = f'You have unread messages from {sender}'
+            message = f'You have unread messages from {sender}',
+            order = instance.order
         )
     except:
         pass
