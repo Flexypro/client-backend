@@ -9,6 +9,17 @@ class Client(models.Model):
     def __str__(self) -> str:
         return (str(self.user))
 
+class Profile(models.Model):
+    user = models.OneToOneField(User,on_delete=models.CASCADE)
+    first_name = models.CharField(max_length=40, null=True, blank=True)
+    last_name = models.CharField(max_length=40, null=True, blank=True)
+    email = models.EmailField(blank=True, null=True)  
+    bio = models.TextField(max_length=240, blank=True, null=True)      
+    profile_photo = models.FileField(upload_to='files/profile-photo', blank=True, null=True)
+
+    def __str__(self) -> str:
+        return str(self.user)
+
 class Solved(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=80)
@@ -24,18 +35,33 @@ class Order(models.Model):
     title = models.CharField(max_length=80)
     category = models.CharField(max_length=20)
     deadline = models.DateTimeField()
-    instructions = models.TextField()
+    instructions = models.TextField(blank=True, null=True)
     status_choices = [
-        ('in_progress','In Progress'),
-        ('completed','Completed')
+        ('In Progress','In Progress'),
+        ('Completed','Completed')
     ]
-    status = models.CharField(max_length=20, choices=status_choices, default='in_progress')
+    status = models.CharField(max_length=20, choices=status_choices, default='In Progress')
+    attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
     amount = models.FloatField()
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     def __str__(self) -> str:
         return str(self.title)
+
+class Solution(models.Model):
+    solution_type =[
+        ('Draft', 'Draft'),
+        ('Final', 'Final')
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE)
+    solution = models.FileField(upload_to='files/solution/', blank=True, null=True)
+    _type = models.CharField(choices=solution_type, default='Final', max_length=20)
+    created = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return str(self.order) + ' solution'
 
 class Rating(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -48,14 +74,6 @@ class Rating(models.Model):
     def __str__(self) -> str:
         return str(self.rating) + str(self.order)
 
-class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    first_name = models.CharField(max_length=40)
-    last_name = models.CharField(max_length=40)
-
-    def __str__(self) -> str:
-        return str(self.user)
-
 class Chat(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, related_name='order', on_delete=models.CASCADE, null=True, blank=True)
@@ -67,15 +85,18 @@ class Chat(models.Model):
     def __str__(self) -> str:
         return str(str(self.sender) + ' to ' +str(self.receiver))
 
-# class Chat(models.Model):
-#     message = models.TextField()
-#     sender = models.ForeignKey(User, on_delete=models.CASCADE,)
-#     receiver = models.ForeignKey( User, on_delete=models.CASCADE,)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     status = models.BooleanField(default=False)
+class Transaction(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, related_name='order_completed', on_delete=models.CASCADE, null=True, blank=True)    
+    _from = models.ForeignKey(Client,blank=True, related_name='_from', null=True, on_delete=models.CASCADE)
+    to = models.ForeignKey(User, related_name='to', blank=True, null=True, on_delete=models.CASCADE)
+    amount = models.FloatField()    
 
-#     def __str__(self):
-#         return str(self.sender) + 'message'
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return str(self.id)
+    
     
 class Notification(models.Model):
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -83,6 +104,10 @@ class Notification(models.Model):
     message = models.CharField(max_length=250)
     created_at = models.DateTimeField(auto_now_add=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, blank=True)
+    read_status = models.BooleanField(max_length=20,blank=True, null=True, default=False)
 
     def __str__(self) -> str:
         return str(self.user) + ' - notification'
+
+# class AppPreferences(models.Model):
+#     pass
