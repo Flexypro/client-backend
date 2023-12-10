@@ -10,6 +10,7 @@ from .models import (
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
+from .views import new_order_created
 
 @receiver(post_save, sender=User)
 def create_profile(instance, created, **kwargs):
@@ -25,6 +26,8 @@ def create_profile(instance, created, **kwargs):
 def create_notification_new_order(instance, created, **kwargs):
     if created:
         writer = User.objects.get(username='mucia')
+        client = User.objects.get(username=instance.client.user)
+        # cliemt = 
         try:
             # Create notification for writer when order is created
             Notification.objects.create(
@@ -39,6 +42,9 @@ def create_notification_new_order(instance, created, **kwargs):
                 message=f'You created a new order - {instance.title}',
                 order = instance
             )
+
+            new_order_created(instance, client, writer)
+            
         except ObjectDoesNotExist:
             pass
 
@@ -60,11 +66,12 @@ def order_notification_update(instance, **kwargs):
         if old_order.status != instance.status and (
             instance.status == 'completed'
         ):
+            
             Notification.objects.create(
                 user = writer,
                 message=f'Order - {instance.title}, was completed. ',
                 order = instance
-            )
+            )            
             
             Transaction.objects.create(
                 to = writer,

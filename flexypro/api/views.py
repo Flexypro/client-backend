@@ -29,6 +29,10 @@ from .permissions import IsOwner
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 # Create your views here.
 
 class ProfileViewSet(viewsets.ModelViewSet):
@@ -88,6 +92,14 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "chat_lobby", {
+                "type":"chat.message",
+                "message":"Order Compeleted"
+            }
+        )
         return super().update(request, *args, **kwargs)
 
     @action(detail=True, methods=['get'], url_path='solution')
@@ -170,6 +182,47 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
         client = Client.objects.get(user=user)
         return self.queryset.filter(_from=client).order_by('-timestamp')
+    
+
+def new_order_created(order_instance, client, writer):
+    serialized_data = OrderSerializer(order_instance).data
+    response_data = {
+        "order":serialized_data
+    }
+
+    channel_layer = get_channel_layer()
+    client_room_id = client.id
+    writer_room_id = writer.id
+
+    
+    async def send_notification():
+
+        writer_room = f'order_{writer_room_id}' 
+        client_room = f'order_{client_room_id}'  
+
+        # print(f'sending to room {room_name}') 
+
+        print(f' Senfing to Client {client_room} , Writer {writer_room}') 
+
+        # Sending order to writer
+        await channel_layer.group_send(
+            writer_room, {
+                'type':'new.order',
+                'message':response_data
+            }
+        )
+
+        # Sending order to client (owner)
+        await channel_layer.group_send(
+            client_room, {
+                'type':'new.order',
+                'message':response_data
+            }
+        )
+
+    async_to_sync(send_notification)()
+    return Response(response_data) 
+
       
 '''--------------------------To be implemented fully--------------------------------'''
 
