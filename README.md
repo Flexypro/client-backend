@@ -31,6 +31,9 @@ If you do not have python virtualenv installed, install it
 ## Runserver to access the API
 ```python manage.py runserver```
 
+## Login to Admin panel
+http:localhost:8000/admin
+
 ## Websockets & realtime communication
 If you want to work with websockets, run redis from docker
 ```docker run --rm -p 6379:6379 redis:7```
