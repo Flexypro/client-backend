@@ -150,7 +150,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order=order,
                 sender = sender,
                 receiver = receiver
-            )
+            )            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -204,26 +205,58 @@ def new_order_created(order_instance, client, writer):
 
         print(f' Senfing to Client {client_room} , Writer {writer_room}') 
 
+        try:
         # Sending order to writer
-        await channel_layer.group_send(
-            writer_room, {
-                'type':'new.order',
-                'message':response_data
-            }
-        )
+            await channel_layer.group_send(
+                writer_room, {
+                    'type':'new.order',
+                    'message':response_data
+                }
+            )
 
-        # Sending order to client (owner)
-        await channel_layer.group_send(
-            client_room, {
-                'type':'new.order',
-                'message':response_data
-            }
-        )
+            # Sending order to client (owner)
+            await channel_layer.group_send(
+                client_room, {
+                    'type':'new.order',
+                    'message':response_data
+                }
+            )
+        except Exception as e:
+            print("Error => ", e)
+
 
     async_to_sync(send_notification)()
     return Response(response_data) 
 
-      
+
+def send_message_signal(receiver, sender, instance):
+
+    serialized_data = ChatSerializer(instance).data
+    serialized_data['order'] = str(serialized_data['order'])
+    response_data = {
+        'sent_message':serialized_data
+    }
+
+    print(serialized_data)
+
+    channel_layer = get_channel_layer()
+
+    room_name = f'chat_{receiver.id}'
+
+    async def send_message():
+        print(room_name)
+        try:
+            await channel_layer.group_send(
+                room_name, {
+                    'type': 'new.chat',
+                    'message': response_data
+                }
+            )
+        except Exception as e:
+            print("Error => ", e)
+
+    async_to_sync(send_message)()
+    return Response(response_data) 
 '''--------------------------To be implemented fully--------------------------------'''
 
 class SolvedViewSet(viewsets.ModelViewSet):
