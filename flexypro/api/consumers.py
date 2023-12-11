@@ -1,15 +1,12 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
-
-from .models import User
-from .signals import new_order_created
+from django.contrib.auth.models import User
+from .models import Order
 
 class OrderConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
-        print(self.room_id)
 
         if self.room_id:
             self.room_group_name = f"order_{self.room_id}"
@@ -18,8 +15,7 @@ class OrderConsumer(AsyncWebsocketConsumer):
             )
             await self.accept()
 
-            print("WS Connected")
-            print(f"{self.room_group_name} created")
+            print("[WS] Order socket connected")
         
         else:
             await self.close()
@@ -30,14 +26,69 @@ class OrderConsumer(AsyncWebsocketConsumer):
     async def new_order(self, event):
         message = event["message"]
 
+        print(message)
+
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
-                'type':'new_order',
-                "message": message
-            }
-        ))
+            'type':'new_order',
+            "message": message
+        }))
+    
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope['url_route']['kwargs']['room_id']
 
+        if self.room_id:
+            self.room_group_name = f'chat_{self.room_id}'
+            await self.channel_layer.group_add(
+                self.room_group_name, self.channel_name
+            )
+            await self.accept()
+            print("[WS] Message socket connected")
+            print(f'Room {self.room_group_name}')
+        else:
+            await self.close()
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        if data['message']:
+            receiver = data['receiver']
+            receiver_id = await self.get_receiver_id(receiver)
+            order_id = data['orderId']
+            room_name = f'chat_{receiver_id}'
+
+            await self.channel_layer.group_send(
+                room_name, {
+                    'type': 'typing.status',
+                    'message': {
+                        'typing':True,
+                        'order_id':order_id
+                    }
+                }
+            )    
         
+    async def typing_status(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type':'typing_status',
+            'message':message
+        }))    
+
+    @database_sync_to_async
+    def get_receiver_id(self, receiver):
+        return User.objects.get(username=receiver).id
+
+    async def new_chat(self, event):
+        message = event["message"]
+        print(message)
+
+        # Send message o WS
+        await self.send(text_data=json.dumps({
+            'type':'new_message',
+            'message':message
+        }))
+
+
         # print(f'Room name => {self.room_id}\nRoom group => {self.room_group_name}')
     
     # async def disconnect(self, code):
