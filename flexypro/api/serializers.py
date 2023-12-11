@@ -66,7 +66,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)
     notification_count = serializers.SerializerMethodField()
-    orders_count = serializers.SerializerMethodField()
+    # orders_count = serializers.SerializerMethodField()
     unread_notifications = serializers.SerializerMethodField()
 
     class Meta:
@@ -78,7 +78,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             'last_name', 
             'notification_count', 
             'unread_notifications',
-            'orders_count', 
+            # 'orders_count', 
             'bio', 
             'profile_photo'
         ]
@@ -93,11 +93,11 @@ class ProfileSerializer(serializers.ModelSerializer):
         unread_notifications = Notification.objects.filter(user=user, read_status=False).count()
         return unread_notifications
 
-    def get_orders_count(self, profile):
-        user = profile.user
-        client = Client.objects.get(user=user)        
-        orders_count = Order.objects.filter(client=client).count()
-        return orders_count
+    # def get_orders_count(self, profile):
+    #     user = profile.user
+    #     client = Client.objects.get(user=user)        
+    #     orders_count = Order.objects.filter(client=client).count()
+    #     return orders_count
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
