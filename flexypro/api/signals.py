@@ -10,7 +10,7 @@ from .models import (
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
-from .views import new_order_created
+from .views import new_order_created, send_message_signal
 
 @receiver(post_save, sender=User)
 def create_profile(instance, created, **kwargs):
@@ -102,6 +102,9 @@ def create_notification_chat(instance, **kwargs):
             message = f'You have unread messages from {sender}',
             order = instance.order
         )
+
+        send_message_signal(receiver, sender, instance)
+
     except:
         pass
 
