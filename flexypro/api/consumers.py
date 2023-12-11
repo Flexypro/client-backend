@@ -26,8 +26,6 @@ class OrderConsumer(AsyncWebsocketConsumer):
     async def new_order(self, event):
         message = event["message"]
 
-        print(message)
-
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'type':'new_order',
@@ -45,7 +43,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             await self.accept()
             print("[WS] Message socket connected")
-            print(f'Room {self.room_group_name}')
+
         else:
             await self.close()
 
@@ -80,7 +78,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def new_chat(self, event):
         message = event["message"]
-        print(message)
 
         # Send message o WS
         await self.send(text_data=json.dumps({
