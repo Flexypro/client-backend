@@ -9,6 +9,12 @@ class Client(models.Model):
     def __str__(self) -> str:
         return (str(self.user))
 
+class Freelancer(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return (str(self.user))
+
 class Profile(models.Model):
     user = models.OneToOneField(User,on_delete=models.CASCADE)
     first_name = models.CharField(max_length=40, null=True, blank=True)
@@ -32,6 +38,7 @@ class Solved(models.Model):
 class Order(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = models.ForeignKey(Client, on_delete=models.CASCADE, blank=True, null=True)
+    freelancer = models.ForeignKey(Freelancer, on_delete=models.CASCADE, blank=True, null=True)
     title = models.CharField(max_length=80)
     category = models.CharField(max_length=20)
     deadline = models.DateTimeField()
@@ -108,6 +115,3 @@ class Notification(models.Model):
 
     def __str__(self) -> str:
         return str(self.user) + ' - notification'
-
-# class AppPreferences(models.Model):
-#     pass
