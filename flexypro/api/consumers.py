@@ -49,7 +49,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        if data['message']:
+        if data['receiver']:
             receiver = data['receiver']
             receiver_id = await self.get_receiver_id(receiver)
             order_id = data['orderId']

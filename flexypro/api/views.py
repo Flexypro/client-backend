@@ -10,6 +10,7 @@ from .models import (
     Transaction, 
     Solution,
     Profile,
+    Freelancer,    
     )
 from .serializers import (
     OrderSerializer, 
@@ -28,8 +29,7 @@ from rest_framework.exceptions import NotFound
 from .permissions import IsOwner
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
-
-
+from django.db.models import Q
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -55,11 +55,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post', 'update', 'put']
 
-    def create(self, request, *args, **kwargs):
-        
+    def create(self, request, *args, **kwargs):        
         serializer = self.get_serializer(data=request.data)
+
         if serializer.is_valid():   
-            print(serializer.errors)         
             self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -70,14 +69,14 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         client = Client.objects.get(user = user)
-        serializer.save(client=client)
+        freelancer = Freelancer.objects.all()[0]
+        serializer.save(client=client, freelancer=freelancer)
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
-            return Order.objects.all()
-        client = Client.objects.get(user = user)
-        return Order.objects.filter(client=client).order_by('-updated')
+        query = Q(client__user=user) | Q(freelancer__user=user)
+            
+        return Order.objects.filter(query).order_by('-updated')
 
     def get_object(self):
         order_id = self.kwargs.get('pk')
@@ -112,7 +111,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     # @action(detail=True, methods=['post'], url_path='create-solution')
     @get_solution.mapping.post
     def post_solution(self, request, pk=None):
-        print(request.data)
         order = self.get_object()
         parser_classes = (MultiPartParser, FormParser)
         serializer = SolutionSerializer(data=request.data, context={'request': request})        
@@ -135,14 +133,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     def create_chat(self, request, pk=None):
         order = self.get_object()
         sender = request.user
-        
-        receiver = User.objects.get(username='mucia')
-        
-        if sender.is_staff:
-            receiver = order.client.user
+        receiver = order.client.user
 
-        else:
-            status.HTTP_400_BAD_REQUEST
+        client = order.client.user
+        freelancer = order.freelancer.user
+        
+        if sender == client:
+            receiver = freelancer
 
         serializer = ChatSerializer(data=request.data)
         if serializer.is_valid():
@@ -183,9 +180,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
         client = Client.objects.get(user=user)
         return self.queryset.filter(_from=client).order_by('-timestamp')
-    
 
-def new_order_created(order_instance, client, writer):
+def new_order_created(order_instance, client, freelancer):
     serialized_data = OrderSerializer(order_instance).data
     response_data = {
         "order":serialized_data
@@ -193,22 +189,19 @@ def new_order_created(order_instance, client, writer):
 
     channel_layer = get_channel_layer()
     client_room_id = client.id
-    writer_room_id = writer.id
-
+    freelancer_room_id = freelancer.id
     
     async def send_notification():
 
-        writer_room = f'order_{writer_room_id}' 
+        freelancer_room = f'order_{freelancer_room_id}' 
         client_room = f'order_{client_room_id}'  
 
-        # print(f'sending to room {room_name}') 
-
-        print(f' Senfing to Client {client_room} , Writer {writer_room}') 
+        print(f'Senfing to Client {client_room} , Writer {freelancer_room}') 
 
         try:
-        # Sending order to writer
+        # Sending order to freelancer
             await channel_layer.group_send(
-                writer_room, {
+                freelancer_room, {
                     'type':'new.order',
                     'message':response_data
                 }
@@ -228,7 +221,6 @@ def new_order_created(order_instance, client, writer):
     async_to_sync(send_notification)()
     return Response(response_data) 
 
-
 def send_message_signal(receiver, sender, instance):
 
     serialized_data = ChatSerializer(instance).data
@@ -237,14 +229,12 @@ def send_message_signal(receiver, sender, instance):
         'sent_message':serialized_data
     }
 
-    print(serialized_data)
-
     channel_layer = get_channel_layer()
 
     room_name = f'chat_{receiver.id}'
 
     async def send_message():
-        print(room_name)
+
         try:
             await channel_layer.group_send(
                 room_name, {

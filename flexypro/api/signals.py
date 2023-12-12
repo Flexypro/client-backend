@@ -25,13 +25,12 @@ def create_profile(instance, created, **kwargs):
 @receiver(post_save, sender=Order)
 def create_notification_new_order(instance, created, **kwargs):
     if created:
-        writer = User.objects.get(username='mucia')
+        freelancer = User.objects.get(username=instance.freelancer.user)
         client = User.objects.get(username=instance.client.user)
-        # cliemt = 
         try:
-            # Create notification for writer when order is created
+            # Create notification for freelancer when order is created
             Notification.objects.create(
-                user = writer,
+                user = freelancer,
                 message=f'New order - {instance.title}, was created. Check order ASAP',
                 order = instance
             )
@@ -43,7 +42,7 @@ def create_notification_new_order(instance, created, **kwargs):
                 order = instance
             )
 
-            new_order_created(instance, client, writer)
+            new_order_created(instance, client, freelancer)
             
         except ObjectDoesNotExist:
             pass
@@ -97,6 +96,8 @@ def create_notification_chat(instance, **kwargs):
         # Create notification for new messages
         receiver = instance.receiver
         sender = instance.sender
+
+        print(f"receiver->{receiver}  seder->{sender}")
         Notification.objects.create(
             user = receiver,
             message = f'You have unread messages from {sender}',
@@ -105,7 +106,8 @@ def create_notification_chat(instance, **kwargs):
 
         send_message_signal(receiver, sender, instance)
 
-    except:
+    except Exception as e:
+        print("Error => ", e)
         pass
 
 @receiver(post_save, sender=Solution)

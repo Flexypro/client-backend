@@ -9,6 +9,7 @@ from .models import (
     Transaction,
     Solution,
     Profile,
+    Freelancer,
 )
 from django.contrib.auth.models import User
 from rest_framework import permissions
@@ -28,6 +29,14 @@ class ClientSerializer(serializers.ModelSerializer):
         model = Client
         exclude = ['id']
 
+class FreelancerSerializer(serializers.ModelSerializer):
+    user = UserSerializer(serializers.ModelSerializer)
+    
+    class Meta:
+        model = Freelancer
+        exclude = ['id']
+
+
 class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
@@ -44,6 +53,7 @@ class SolutionSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer): 
     client = ClientSerializer(read_only=True)
+    freelancer = FreelancerSerializer(read_only=True)
     solution = SolutionSerializer(read_only=True)
     rating = RatingSerializer(read_only=True)
 
