@@ -12,7 +12,15 @@ from .models import (
     Freelancer,
 )
 from django.contrib.auth.models import User
-from rest_framework import permissions
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class ObtainTokenSerializer(TokenObtainPairSerializer):
+
+    @classmethod
+    def get_token(cls, user):
+        token= super(ObtainTokenSerializer, cls).get_token(user)
+        token['username'] = user.username
+        return token    
 
 class UserSerializer(serializers.ModelSerializer):
 

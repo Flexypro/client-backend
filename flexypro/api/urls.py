@@ -7,11 +7,12 @@ from .views import (
     NotificationViewSet, 
     SolvedViewSet, 
     TransactionViewSet,
-    ProfileViewSet
+    ProfileViewSet,
+    TokenPairView
 )
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
+    # TokenObtainPairView,
     TokenRefreshView,    
 )
 
@@ -25,7 +26,7 @@ router.register(f'{settings.API_VERSION_PREFIX}/notifications', NotificationView
 router.register(f'{settings.API_VERSION_PREFIX}/solved', SolvedViewSet, basename='solved')
 router.register(f'{settings.API_VERSION_PREFIX}/transactions', TransactionViewSet, basename='transactions')
 urlpatterns = [
-    path(f'{settings.API_VERSION_PREFIX}/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path(f'{settings.API_VERSION_PREFIX}/token/', TokenPairView.as_view(), name='token_obtain_pair'),
     path(f'{settings.API_VERSION_PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 if settings.DEBUG:

@@ -20,9 +20,11 @@ from .serializers import (
     TransactionSerializer, 
     SolutionSerializer,
     ProfileSerializer,
+    ObtainTokenSerializer,    
 )
+
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
@@ -32,9 +34,13 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 # Create your views here.
-
+class TokenPairView(TokenObtainPairView):
+    permission_class = (AllowAny)
+    serializezr_class = ObtainTokenSerializer
+    
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
