@@ -137,7 +137,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         client = order.client.user
         freelancer = order.freelancer.user
-        
+
         if sender == client:
             receiver = freelancer
 
@@ -191,7 +191,7 @@ def new_order_created(order_instance, client, freelancer):
     client_room_id = client.id
     freelancer_room_id = freelancer.id
     
-    async def send_notification():
+    async def send_order():
 
         freelancer_room = f'order_{freelancer_room_id}' 
         client_room = f'order_{client_room_id}'  
@@ -218,7 +218,7 @@ def new_order_created(order_instance, client, freelancer):
             print("Error => ", e)
 
 
-    async_to_sync(send_notification)()
+    async_to_sync(send_order)()
     return Response(response_data) 
 
 def send_message_signal(receiver, sender, instance):
@@ -234,7 +234,6 @@ def send_message_signal(receiver, sender, instance):
     room_name = f'chat_{receiver.id}'
 
     async def send_message():
-
         try:
             await channel_layer.group_send(
                 room_name, {
@@ -247,6 +246,31 @@ def send_message_signal(receiver, sender, instance):
 
     async_to_sync(send_message)()
     return Response(response_data) 
+
+
+def send_alert(instance, user):
+    channel_layer = get_channel_layer()
+    room_name  =f'notifications_{user.id}'
+
+    serialized_data = NotificationSerializer(instance).data
+    response_data = {
+        'notification':serialized_data
+    }
+
+    async def send_notification():
+        try:
+            await channel_layer.group_send(
+                room_name, {
+                    'type':'new.notification',
+                    'message':response_data
+                }
+            )
+        except Exception as e:
+            print("Error => ", e)
+    
+    async_to_sync(send_notification)()
+    return Response(response_data)
+
 '''--------------------------To be implemented fully--------------------------------'''
 
 class SolvedViewSet(viewsets.ModelViewSet):

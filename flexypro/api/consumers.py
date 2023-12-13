@@ -79,11 +79,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def new_chat(self, event):
         message = event["message"]
 
-        # Send message o WS
+        # Send message WS
         await self.send(text_data=json.dumps({
             'type':'new_message',
             'message':message
         }))
+
+class NotificationConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope['url_route']['kwargs']['room_id']
+        print("Trying to connect to notifications")
+        if self.room_id:
+            self.room_group_name = f'notifications_{self.room_id}'
+            await self.channel_layer.group_add(
+                self.room_group_name, self.channel_name
+            )
+            await self.accept()
+            print('[WS] Notification socket connected')
+        else:
+            await self.close()
+    
+    async def new_notification(self, event):
+        message = event['message']
+        print(message)
+        await self.send(text_data=json.dumps({
+            'type':'new_notification',
+            'message':message
+        }))
+
 
 
         # print(f'Room name => {self.room_id}\nRoom group => {self.room_group_name}')

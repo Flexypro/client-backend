@@ -36,7 +36,6 @@ class FreelancerSerializer(serializers.ModelSerializer):
         model = Freelancer
         exclude = ['id']
 
-
 class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
@@ -65,12 +64,12 @@ class OrderSerializer(serializers.ModelSerializer):
     #     return obj.solution
 
 class NotificationSerializer(serializers.ModelSerializer):
-    # user = UserSerializer(read_only=True)
+    user = serializers.CharField(source='user.username', read_only=True)
     order_id = serializers.CharField(source='order.id', read_only=True)    
 
     class Meta:
         model = Notification
-        fields = ['id','message', 'order_id', 'read_status', 'created_at']
+        fields = ['id','user','message', 'order_id', 'read_status', 'created_at']
         ordering = ['-created_at']
 
 class ProfileSerializer(serializers.ModelSerializer):

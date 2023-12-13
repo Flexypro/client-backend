@@ -10,7 +10,7 @@ from .models import (
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
-from .views import new_order_created, send_message_signal
+from .views import new_order_created, send_alert, send_message_signal
 
 @receiver(post_save, sender=User)
 def create_profile(instance, created, **kwargs):
@@ -27,6 +27,8 @@ def create_notification_new_order(instance, created, **kwargs):
     if created:
         freelancer = User.objects.get(username=instance.freelancer.user)
         client = User.objects.get(username=instance.client.user)
+        new_order_created(instance, client, freelancer)
+        
         try:
             # Create notification for freelancer when order is created
             Notification.objects.create(
@@ -41,8 +43,6 @@ def create_notification_new_order(instance, created, **kwargs):
                 message=f'You created a new order - {instance.title}',
                 order = instance
             )
-
-            new_order_created(instance, client, freelancer)
             
         except ObjectDoesNotExist:
             pass
@@ -97,14 +97,15 @@ def create_notification_chat(instance, **kwargs):
         receiver = instance.receiver
         sender = instance.sender
 
-        print(f"receiver->{receiver}  seder->{sender}")
+        # Enable if the unread messages are more than 1        
+
+        send_message_signal(receiver, sender, instance)
+
         Notification.objects.create(
             user = receiver,
             message = f'You have unread messages from {sender}',
             order = instance.order
         )
-
-        send_message_signal(receiver, sender, instance)
 
     except Exception as e:
         print("Error => ", e)
@@ -124,3 +125,9 @@ def create_notification_solution(instance, **kwargs):
         )
     except:
         pass
+
+@receiver(post_save, sender=Notification)
+def notification_send_alert(instance, **kwargs):
+    user = instance.user
+    print("Sending notification")
+    send_alert(instance, user)
