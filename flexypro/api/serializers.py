@@ -25,12 +25,21 @@ class ObtainTokenSerializer(TokenObtainPairSerializer):
         return token    
 
 class RegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(
+    email = serializers.EmailField(        
         required=True,
-        validators=[UniqueValidator(queryset=User.objects.all())]
+        validators=[UniqueValidator(queryset=User.objects.all(), message = [            
+            'This email address is already in use'           
+        ])],        
     )
-    password_1 = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    password_2 = serializers.CharField(write_only=True, required=True)
+    password_1 = serializers.CharField(
+        write_only=True, 
+        required=True, 
+        validators=[validate_password],
+    )
+    password_2 = serializers.CharField(
+        write_only=True, 
+        required=True
+    )
 
     class Meta:
         model=User
@@ -123,39 +132,41 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)
-    notification_count = serializers.SerializerMethodField()
-    # orders_count = serializers.SerializerMethodField()
-    unread_notifications = serializers.SerializerMethodField()
+    email = serializers.CharField(source='user.email', read_only=True)
+    orders_count = serializers.SerializerMethodField()
+    # notification_count = serializers.SerializerMethodField()
+    # unread_notifications = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = [
             'id',
             'username', 
+            'email',
             'first_name', 
             'last_name', 
-            'notification_count', 
-            'unread_notifications',
-            # 'orders_count', 
+            'orders_count',
+            # 'notification_count', 
+            # 'unread_notifications',
             'bio', 
             'profile_photo'
         ]
         
-    def get_notification_count(self, profile):
-        user = profile.user        
-        notification_count = Notification.objects.filter(user=user).count()
-        return notification_count
+    # def get_notification_count(self, profile):
+    #     user = profile.user        
+    #     notification_count = Notification.objects.filter(user=user).count()
+    #     return notification_count
 
-    def get_unread_notifications(self, profile):
-        user = profile.user
-        unread_notifications = Notification.objects.filter(user=user, read_status=False).count()
-        return unread_notifications
-
-    # def get_orders_count(self, profile):
+    # def get_unread_notifications(self, profile):
     #     user = profile.user
-    #     client = Client.objects.get(user=user)        
-    #     orders_count = Order.objects.filter(client=client).count()
-    #     return orders_count
+    #     unread_notifications = Notification.objects.filter(user=user, read_status=False).count()
+    #     return unread_notifications
+
+    def get_orders_count(self, profile):
+        user = profile.user
+        client = Client.objects.get(user=user)        
+        orders_count = Order.objects.filter(client=client).count()
+        return orders_count
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
