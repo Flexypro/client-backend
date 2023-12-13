@@ -8,7 +8,8 @@ from .views import (
     SolvedViewSet, 
     TransactionViewSet,
     ProfileViewSet,
-    TokenPairView
+    TokenPairView,
+    RegisterView
 )
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
@@ -28,6 +29,7 @@ router.register(f'{settings.API_VERSION_PREFIX}/transactions', TransactionViewSe
 urlpatterns = [
     path(f'{settings.API_VERSION_PREFIX}/token/', TokenPairView.as_view(), name='token_obtain_pair'),
     path(f'{settings.API_VERSION_PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path(f'{settings.API_VERSION_PREFIX}/auth/client/register/', RegisterView.as_view(), name='register')    
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

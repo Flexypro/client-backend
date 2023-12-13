@@ -21,11 +21,12 @@ from .serializers import (
     SolutionSerializer,
     ProfileSerializer,
     ObtainTokenSerializer,    
+    RegisterSerializer
 )
 
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework import status
+from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 from .permissions import IsOwner
@@ -40,7 +41,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 class TokenPairView(TokenObtainPairView):
     permission_class = (AllowAny)
     serializezr_class = ObtainTokenSerializer
-    
+
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    # permission_classes = (AllowAny)
+    serializer_class = RegisterSerializer
+
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
