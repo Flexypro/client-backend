@@ -17,12 +17,17 @@ from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
 
 class ObtainTokenSerializer(TokenObtainPairSerializer):
-
     @classmethod
     def get_token(cls, user):
+
+        try:            
+            Client.objects.get(user=user)
+        except:
+            raise serializers.ValidationError("No such client found. Authentication Failed", code='authentication')
+        
         token= super(ObtainTokenSerializer, cls).get_token(user)
         token['username'] = user.username
-        return token    
+        return token  
 
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(        

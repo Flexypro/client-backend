@@ -39,8 +39,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 # Create your views here.
 class TokenPairView(TokenObtainPairView):
-    permission_class = (AllowAny)
-    serializezr_class = ObtainTokenSerializer
+    permission_classes = [AllowAny]
+    serializer_class = ObtainTokenSerializer
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()

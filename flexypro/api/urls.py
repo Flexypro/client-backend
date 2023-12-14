@@ -27,7 +27,7 @@ router.register(f'{settings.API_VERSION_PREFIX}/notifications', NotificationView
 router.register(f'{settings.API_VERSION_PREFIX}/solved', SolvedViewSet, basename='solved')
 router.register(f'{settings.API_VERSION_PREFIX}/transactions', TransactionViewSet, basename='transactions')
 urlpatterns = [
-    path(f'{settings.API_VERSION_PREFIX}/token/', TokenPairView.as_view(), name='token_obtain_pair'),
+    path(f'{settings.API_VERSION_PREFIX}/token/c/', TokenPairView.as_view(), name='token_obtain_pair'),
     path(f'{settings.API_VERSION_PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path(f'{settings.API_VERSION_PREFIX}/auth/client/register/', RegisterView.as_view(), name='register')    
 ]
