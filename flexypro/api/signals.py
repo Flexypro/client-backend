@@ -6,7 +6,8 @@ from .models import (
     Chat, 
     Transaction, 
     Solution, 
-    Profile
+    Profile, 
+    Freelancer
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
@@ -49,7 +50,7 @@ def create_notification_new_order(instance, created, **kwargs):
 
 @receiver(pre_save, sender=Order)
 def order_notification_update(instance, **kwargs):
-    writer = User.objects.get(username='mucia')
+    writer = Freelancer.objects.all()[0]
     try:
         old_order = Order.objects.get(pk=instance.pk)
 
