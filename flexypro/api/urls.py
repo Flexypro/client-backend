@@ -9,27 +9,31 @@ from .views import (
     TransactionViewSet,
     ProfileViewSet,
     TokenPairView,
-    RegisterView
+    RegisterView,
+    VerifyUserEmail,
 )
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
     # TokenObtainPairView,
-    TokenRefreshView,    
+    TokenRefreshView,        
 )
 
 from django.conf.urls.static import static
 
+PREFIX = settings.API_VERSION_PREFIX
+
 router = DefaultRouter()
 
-router.register(f'{settings.API_VERSION_PREFIX}/profile', ProfileViewSet, basename='profile')
-router.register(f'{settings.API_VERSION_PREFIX}/orders', OrderViewSet, basename='orders')
-router.register(f'{settings.API_VERSION_PREFIX}/notifications', NotificationViewSet, basename='notifications')
-router.register(f'{settings.API_VERSION_PREFIX}/solved', SolvedViewSet, basename='solved')
-router.register(f'{settings.API_VERSION_PREFIX}/transactions', TransactionViewSet, basename='transactions')
+router.register(f'{PREFIX}/profile', ProfileViewSet, basename='profile')
+router.register(f'{PREFIX}/orders', OrderViewSet, basename='orders')
+router.register(f'{PREFIX}/notifications', NotificationViewSet, basename='notifications')
+router.register(f'{PREFIX}/solved', SolvedViewSet, basename='solved')
+router.register(f'{PREFIX}/transactions', TransactionViewSet, basename='transactions')
 urlpatterns = [
-    path(f'{settings.API_VERSION_PREFIX}/token/c/', TokenPairView.as_view(), name='token_obtain_pair'),
-    path(f'{settings.API_VERSION_PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path(f'{settings.API_VERSION_PREFIX}/auth/client/register/', RegisterView.as_view(), name='register')    
+    path(f'{PREFIX}/token/c/', TokenPairView.as_view(), name='token_obtain_pair'),
+    path(f'{PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path(f'{PREFIX}/auth/client/register/', RegisterView.as_view(), name='register'),
+    path(f'verify-email/', VerifyUserEmail.as_view(), name='verify-email')
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
