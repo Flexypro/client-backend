@@ -8,10 +8,12 @@ from .models import (
     Transaction, 
     Solution,
     Profile,
-    Freelancer
+    Freelancer,
+    User
 )
 
 # Register your models here.
+admin.site.register(User)
 admin.site.register(Client)
 admin.site.register(Order)
 # admin.site.register(Chat)
