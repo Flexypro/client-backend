@@ -36,6 +36,13 @@ from django.db.models import Q
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
+from .utils import Util
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
+from django.conf import settings
+
+import jwt
 
 # Create your views here.
 class TokenPairView(TokenObtainPairView):
@@ -46,6 +53,60 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     # permission_classes = (AllowAny)
     serializer_class = RegisterSerializer
+
+    def post(self, request):
+        user = request.data
+        serializer = self.serializer_class(data=user)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        user_data = serializer.data
+        user = User.objects.get(email=user_data['email'])
+
+        token = RefreshToken.for_user(user).access_token
+
+        current_site = get_current_site(request).domain
+        relative_link = reverse('verify-email')
+        abs_url = f'http://{current_site+relative_link+"?token="+str(token)}'
+        email_body = f'Hi {user.username} Verify your account using the link below \n {abs_url}'
+
+        data = {
+            'email_body':email_body,
+            'email_subject':'Email Verification',
+            'email_to': user.email
+        }
+
+        Util.send_email(data=data)
+
+        return Response(user_data, status=status.HTTP_201_CREATED)
+
+class VerifyUserEmail(generics.GenericAPIView):
+    def get(self,request):
+        token = request.GET.get('token')
+        print(f'Token found {token}')
+                
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            user = User.objects.get(id=payload['user_id'])
+            print(user)
+            user.is_verified = True
+            user.save()
+            print("Account activated")
+
+            return Response({
+                'email':'Email account activated successfully'
+            }, status=status.HTTP_200_OK)
+        
+        except jwt.ExpiredSignatureError as error:
+            return Response({
+                'error':'Activation link expired'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        except jwt.exceptions.DecodeError as error:
+            return Response({
+                'error':'Invalid Token',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
