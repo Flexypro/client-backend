@@ -7,10 +7,11 @@ from .models import (
     Transaction, 
     Solution, 
     Profile, 
-    Freelancer
+    Freelancer,
+    User
 )
 from django.core.exceptions import ObjectDoesNotExist
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
 from .views import new_order_created, send_alert, send_message_signal
 
 @receiver(post_save, sender=User)
