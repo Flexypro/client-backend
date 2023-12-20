@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework import viewsets
 from .models import (
     Order, 
@@ -85,6 +85,7 @@ class RegisterView(generics.CreateAPIView):
         return Response(user_data, status=status.HTTP_201_CREATED)
 
 class VerifyUserEmail(generics.GenericAPIView):
+    
     def get(self,request):
         token = request.GET.get('token')
         print(f'Token found {token}')
@@ -92,26 +93,24 @@ class VerifyUserEmail(generics.GenericAPIView):
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
             user = User.objects.get(id=payload['user_id'])
-            print(user)
-            user.is_verified = True
-            user.save()
-            print("Account activated")
+            if not user.is_verified:
+                user.is_verified = True
+                user.save()
+                print("Account activated")
 
-            return Response({
-                'email':'Email account activated successfully'
-            }, status=status.HTTP_200_OK)
-        
-        except jwt.ExpiredSignatureError as error:
+                return redirect(settings.APP_HOME)            
+            return redirect(settings.APP_HOME) 
+        except jwt.ExpiredSignatureError as error:            
+            # return redirect(f'{settings.APP_HOME}/request-newtoken')
             return Response({
                 'error':'Activation link expired'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_400_BAD_REQUEST)        
         
         except jwt.exceptions.DecodeError as error:
+            # return redirect(f'{settings.APP_HOME}/request-newtoken')
             return Response({
                 'error':'Invalid Token',
             }, status=status.HTTP_400_BAD_REQUEST)
-
-
 
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
@@ -324,7 +323,6 @@ def send_message_signal(receiver, sender, instance):
 
     async_to_sync(send_message)()
     return Response(response_data) 
-
 
 def send_alert(instance, user):
     channel_layer = get_channel_layer()
