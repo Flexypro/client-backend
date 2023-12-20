@@ -11,7 +11,10 @@ from .views import (
     TokenPairViewClient,
     TokenPairViewFreelancer,
     RegisterView,
-    VerifyUserEmail,
+    VerifyUserEmailView,    
+    ResetPasswordView,
+    PasswordTokenCheckView,
+    SetNewPasswordView,
 )
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
@@ -35,7 +38,10 @@ urlpatterns = [
     path(f'{PREFIX}/token/f/', TokenPairViewFreelancer.as_view(), name='token_obtain_pair'),
     path(f'{PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path(f'{PREFIX}/auth/client/register/', RegisterView.as_view(), name='register'),
-    path(f'verify-email/', VerifyUserEmail.as_view(), name='verify-email')
+    path(f'verify-email/', VerifyUserEmailView.as_view(), name='verify-email'),
+    path(f'{PREFIX}/reset-password/', ResetPasswordView.as_view(), name='reset-password' ),
+    path(f'password-reset-confirm/<uidb64>/<token>/', PasswordTokenCheckView.as_view(), name='password-reset-confirm'),
+    path(f'{PREFIX}/password-reset-complete/', SetNewPasswordView.as_view(), name='password-reset-complete')    
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

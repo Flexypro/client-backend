@@ -1,3 +1,4 @@
+from base64 import urlsafe_b64encode
 from django.shortcuts import redirect, render
 from rest_framework import viewsets
 from .models import (
@@ -22,7 +23,9 @@ from .serializers import (
     ProfileSerializer,
     ObtainTokenSerializerClient,    
     ObtainTokenSerializerFreelancer,    
-    RegisterSerializer
+    RegisterSerializer,
+    ResetPasswordSerializer,
+    setNewPasswordSerializer
 )
 
 from rest_framework.decorators import action
@@ -42,10 +45,92 @@ from .utils import Util
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from django.conf import settings
-
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.contrib.sites.shortcuts import get_current_site
 import jwt
 
 # Create your views here.
+
+class ResetPasswordView(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+    def post(self, request):
+        data={
+            'request':request,
+            'data': request.data
+        }
+        serializer = self.serializer_class(data=data)
+
+        email = request.data['email']
+        if User.objects.filter(email=email).exists():
+            user = User.objects.get(email=email)
+            uidb64 = urlsafe_b64encode(bytes(str(user.id), 'utf-8')).decode('utf-8')
+            # uidb64 = user.id
+
+            token = PasswordResetTokenGenerator().make_token(user)
+            current_site = get_current_site(request).domain
+            relative_link = reverse(
+                'password-reset-confirm', kwargs={
+                    'uidb64':uidb64,
+                    'token':token
+                }
+            )
+            abs_url = f'http://{current_site+relative_link}'
+            email_body = f'Hi {user.username} Reset your account password with below \n {abs_url}'
+
+            data = {
+                'email_body':email_body,
+                'email_subject':'Password Reset',
+                'email_to': user.email
+            }
+
+            Util.send_email(data)
+        
+            return Response({
+                    f'success':'Password reset send to {email}',
+                }, status=status.HTTP_200_OK
+            )
+        return Response({
+            'error':'No user with the provided email found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+class PasswordTokenCheckView(generics.GenericAPIView):
+    def get(self, request, uidb64, token):
+        try:
+            
+            id = smart_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id=id)
+
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return Response({
+                    'error':'Token already used'
+                })
+                        
+            return Response({
+                'success':True,
+                'uidb64':user.id,
+                'token':token
+            })
+            
+        except DjangoUnicodeDecodeError as error:
+            return Response({
+                'error':'Invalid token'
+            })
+
+class SetNewPasswordView(generics.GenericAPIView):
+    serializer_class = setNewPasswordSerializer
+
+    def patch(self, request):
+        serializer = self.serializer_class(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        return Response({
+            'success':True,
+            'message':'Password reset successful'
+        }, status=status.HTTP_200_OK)
+
 class TokenPairViewClient(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerClient
@@ -84,7 +169,7 @@ class RegisterView(generics.CreateAPIView):
 
         return Response(user_data, status=status.HTTP_201_CREATED)
 
-class VerifyUserEmail(generics.GenericAPIView):
+class VerifyUserEmailView(generics.GenericAPIView):
     
     def get(self,request):
         token = request.GET.get('token')
