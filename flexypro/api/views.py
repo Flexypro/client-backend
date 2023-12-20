@@ -20,7 +20,8 @@ from .serializers import (
     TransactionSerializer, 
     SolutionSerializer,
     ProfileSerializer,
-    ObtainTokenSerializer,    
+    ObtainTokenSerializerClient,    
+    ObtainTokenSerializerFreelancer,    
     RegisterSerializer
 )
 
@@ -45,9 +46,13 @@ from django.conf import settings
 import jwt
 
 # Create your views here.
-class TokenPairView(TokenObtainPairView):
+class TokenPairViewClient(TokenObtainPairView):
     permission_classes = [AllowAny]
-    serializer_class = ObtainTokenSerializer
+    serializer_class = ObtainTokenSerializerClient
+
+class TokenPairViewFreelancer(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = ObtainTokenSerializerFreelancer
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()

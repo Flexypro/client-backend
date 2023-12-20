@@ -8,7 +8,8 @@ from .views import (
     SolvedViewSet, 
     TransactionViewSet,
     ProfileViewSet,
-    TokenPairView,
+    TokenPairViewClient,
+    TokenPairViewFreelancer,
     RegisterView,
     VerifyUserEmail,
 )
@@ -30,7 +31,8 @@ router.register(f'{PREFIX}/notifications', NotificationViewSet, basename='notifi
 router.register(f'{PREFIX}/solved', SolvedViewSet, basename='solved')
 router.register(f'{PREFIX}/transactions', TransactionViewSet, basename='transactions')
 urlpatterns = [
-    path(f'{PREFIX}/token/c/', TokenPairView.as_view(), name='token_obtain_pair'),
+    path(f'{PREFIX}/token/c/', TokenPairViewClient.as_view(), name='token_obtain_pair'),
+    path(f'{PREFIX}/token/f/', TokenPairViewFreelancer.as_view(), name='token_obtain_pair'),
     path(f'{PREFIX}/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path(f'{PREFIX}/auth/client/register/', RegisterView.as_view(), name='register'),
     path(f'verify-email/', VerifyUserEmail.as_view(), name='verify-email')

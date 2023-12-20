@@ -17,7 +17,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
 
-class ObtainTokenSerializer(TokenObtainPairSerializer):
+class ObtainTokenSerializerClient(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
 
@@ -26,10 +26,22 @@ class ObtainTokenSerializer(TokenObtainPairSerializer):
         except:
             raise serializers.ValidationError("No such client found. Authentication Failed", code='authentication')
         
-        token= super(ObtainTokenSerializer, cls).get_token(user)
+        token= super(ObtainTokenSerializerClient, cls).get_token(user)
         token['username'] = user.username
         return token  
+class ObtainTokenSerializerFreelancer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
 
+        try:            
+            Freelancer.objects.get(user=user)
+        except:
+            raise serializers.ValidationError("You're not registered. Authentication Failed", code='authentication')
+        
+        token= super(ObtainTokenSerializerFreelancer, cls).get_token(user)
+        token['username'] = user.username
+        return token 
+    
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(        
         required=True,
