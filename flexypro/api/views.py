@@ -1,5 +1,7 @@
 from base64 import urlsafe_b64encode
+from email import utils
 from django.shortcuts import redirect, render
+import pyotp
 from rest_framework import viewsets
 from .models import (
     Order, 
@@ -25,7 +27,9 @@ from .serializers import (
     ObtainTokenSerializerFreelancer,    
     RegisterSerializer,
     ResetPasswordSerializer,
-    setNewPasswordSerializer
+    setNewPasswordSerializer,
+    OTPSerializer,
+    OTP
 )
 
 from rest_framework.decorators import action
@@ -49,7 +53,8 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
-import jwt
+
+# from django_otp.exceptions import OTPVerificationError
 
 # Create your views here.
 
@@ -145,19 +150,32 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        # user = request.data
+        # print(user)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
         user_data = serializer.data
         user = User.objects.get(email=user_data['email'])
 
-        token = RefreshToken.for_user(user).access_token
+        topt = pyotp.TOTP(settings.OTP_KEY)
 
-        current_site = get_current_site(request).domain
-        relative_link = reverse('verify-email')
-        abs_url = f'http://{current_site+relative_link+"?token="+str(token)}'
-        email_body = f'Hi {user.username} Verify your account using the link below \n {abs_url}'
+        otp = Util.generate_otp(topt)
+
+        OTP.objects.create(
+            otp = otp,
+            user = user
+        )
+
+        # user.save()
+
+        # token = RefreshToken.for_user(user).access_token
+
+        # current_site = get_current_site(request).domain
+        # relative_link = reverse('verify-email')
+        # abs_url = f'http://{current_site+relative_link+"?token="+str(token)}'
+        email_body = f'Hi {user.username} \nYour OTP is {otp}'
 
         data = {
             'email_body':email_body,
@@ -168,34 +186,113 @@ class RegisterView(generics.CreateAPIView):
         Util.send_email(data=data)
 
         return Response(user_data, status=status.HTTP_201_CREATED)
+    
+class ResendOTPView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:            
+
+            user = User.objects.get(username=self.request.user)
+
+            if not user.is_verified:
+                topt = pyotp.TOTP(settings.OTP_KEY)
+
+                otp = Util.generate_otp(topt)
+
+                OTP.objects.create(
+                    otp = otp,
+                    user = user
+                )
+
+                email_body = f'Hi {user.username} \nYour OTP is {otp}'
+
+                data = {
+                    'email_body':email_body,
+                    'email_subject':'Email Verification',
+                    'email_to': user.email
+                }
+
+                Util.send_email(data=data)
+
+                return Response({
+                    'success':'OTP resend successfully'
+                },status=status.HTTP_201_CREATED)
+            else:
+                return Response({
+                    'detail':'User already verified'
+                },status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception:
+            return Response({
+                'error': 'Invalid request'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 class VerifyUserEmailView(generics.GenericAPIView):
-    
-    def get(self,request):
-        token = request.GET.get('token')
-        print(f'Token found {token}')
-                
-        try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-            user = User.objects.get(id=payload['user_id'])
-            if not user.is_verified:
-                user.is_verified = True
-                user.save()
-                print("Account activated")
+    serializer_class = OTPSerializer
+    permission_classes = [IsAuthenticated]
 
-                return redirect(settings.APP_HOME)            
-            return redirect(settings.APP_HOME) 
-        except jwt.ExpiredSignatureError as error:            
-            # return redirect(f'{settings.APP_HOME}/request-newtoken')
-            return Response({
-                'error':'Activation link expired'
-            }, status=status.HTTP_400_BAD_REQUEST)        
+    def post(self,request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        print(serializer.validated_data)
+
+        otp = serializer.validated_data['otp']
         
-        except jwt.exceptions.DecodeError as error:
-            # return redirect(f'{settings.APP_HOME}/request-newtoken')
+        print(self.request.user)
+
+        user = User.objects.get(username=self.request.user)
+        otp_object = OTP.objects.filter(user=user).last()
+
+        print(otp_object)
+
+        # print(f'Token found {token}')                
+            # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            # user = User.objects.get(id=payload['user_id'])
+        try:
+            if not user.is_verified:
+                valid = Util.verify_otp(self, otp, otp_object)
+                print("--->",valid)
+                
+                if valid:
+                    if not user.is_verified:
+                        user.is_verified = True
+                        otp_object.used = True
+                        otp_object.save()
+                        user.save()
+                        return Response({
+                            'success':'Account activation success'
+                        }, status=status.HTTP_200_OK)
+                elif otp != otp_object.otp:
+                    print(otp_object.otp)
+                    return Response({
+                        'error':'Invalid OTP'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                elif otp_object.used:
+                    return Response({
+                        'error':'OTP already used'
+                    }, status.HTTP_400_BAD_REQUEST)                       
+            else:
+                return Response({
+                'error':'User already verified'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception:
             return Response({
-                'error':'Invalid Token',
-            }, status=status.HTTP_400_BAD_REQUEST)
+                    'error':'No OTPs found'
+                }, status.HTTP_400_BAD_REQUEST) 
+        # except jwt.ExpiredSignatureError as error:            
+            # return redirect(f'{settings.APP_HOME}/request-newtoken')
+            # return Response({
+            #     'error':'Activation link expired'
+            # }, status=status.HTTP_400_BAD_REQUEST)        
+        
+        # except jwt.exceptions.DecodeError as error:
+        #     # return redirect(f'{settings.APP_HOME}/request-newtoken')
+        #     return Response({
+        #         'error':'Invalid Token',
+        #     }, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()

@@ -13,7 +13,9 @@ from .models import (
     Solution,
     Profile,
     Freelancer,
-    User
+    User,
+    OTP,
+
 )
 # from django.contrib.auth.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -57,12 +59,16 @@ class setNewPasswordSerializer(serializers.ModelSerializer):
 
         return super().validate(attrs)
 
-
-
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(min_length=2)
     class Meta:
         fields=['email']    
+
+class OTPSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OTP
+        fields=['otp','used']
+        ordering = ['--timestamp']
 
 class ObtainTokenSerializerClient(TokenObtainPairSerializer):
     @classmethod
@@ -76,6 +82,7 @@ class ObtainTokenSerializerClient(TokenObtainPairSerializer):
         token= super(ObtainTokenSerializerClient, cls).get_token(user)
         token['username'] = user.username
         return token  
+
 class ObtainTokenSerializerFreelancer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -111,11 +118,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = (
             'username','password_1','password_2','email','first_name','last_name'
         )
-
-        # extra_kwargs = {
-        #     'first_name':{'required':True},
-        #     'last_name':{'required':True}            
-        # }
     
     def validate(self, attrs):
         if attrs['password_1'] != attrs['password_2']:
@@ -237,7 +239,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['last_login'] = instance.user.last_login
         return data
-
 
 class SolvedSerializer(serializers.ModelSerializer):
     
