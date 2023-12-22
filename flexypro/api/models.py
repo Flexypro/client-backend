@@ -2,16 +2,15 @@ from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser, BaseUserManager, PermissionsMixin
 )
-
+from django.conf import settings
 import uuid
-
 # Create your models here.
 
 class UserManager(BaseUserManager):
 
     def create_user(self, username, email, password=None):
         if username is None:
-            raise TypeError("Username requireed")
+            raise TypeError("Username required")
         if email is None:
             raise TypeError("Password is required")
         
@@ -52,6 +51,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self) -> str:
         return str(self.username)
 
+class OTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)    
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    used = models.BooleanField(default=False)
+    # timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f'{self.otp}' + f' {str(self.user)}'
+    
 
 class Client(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
