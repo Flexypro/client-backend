@@ -9,14 +9,15 @@ from .models import (
     Solution,
     Profile,
     Freelancer,
-    User
+    User,
+    OTP
 )
 
 # Register your models here.
 admin.site.register(User)
 admin.site.register(Client)
 admin.site.register(Order)
-# admin.site.register(Chat)
+admin.site.register(OTP)
 admin.site.register(Notification)
 admin.site.register(Rating)
 admin.site.register(Solved)

@@ -1,4 +1,7 @@
-from django.shortcuts import render
+from base64 import urlsafe_b64encode
+from email import utils
+from django.shortcuts import redirect, render
+import pyotp
 from rest_framework import viewsets
 from .models import (
     Order, 
@@ -22,7 +25,11 @@ from .serializers import (
     ProfileSerializer,
     ObtainTokenSerializerClient,    
     ObtainTokenSerializerFreelancer,    
-    RegisterSerializer
+    RegisterSerializer,
+    ResetPasswordSerializer,
+    setNewPasswordSerializer,
+    OTPSerializer,
+    OTP
 )
 
 from rest_framework.decorators import action
@@ -42,10 +49,93 @@ from .utils import Util
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from django.conf import settings
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.contrib.sites.shortcuts import get_current_site
 
-import jwt
+# from django_otp.exceptions import OTPVerificationError
 
 # Create your views here.
+
+class ResetPasswordView(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+    def post(self, request):
+        data={
+            'request':request,
+            'data': request.data
+        }
+        serializer = self.serializer_class(data=data)
+
+        email = request.data['email']
+        if User.objects.filter(email=email).exists():
+            user = User.objects.get(email=email)
+            uidb64 = urlsafe_b64encode(bytes(str(user.id), 'utf-8')).decode('utf-8')
+            # uidb64 = user.id
+
+            token = PasswordResetTokenGenerator().make_token(user)
+            current_site = get_current_site(request).domain
+            relative_link = reverse(
+                'password-reset-confirm', kwargs={
+                    'uidb64':uidb64,
+                    'token':token
+                }
+            )
+            abs_url = f'http://{current_site+relative_link}'
+            email_body = f'Hi {user.username} Reset your account password with below \n {abs_url}'
+
+            data = {
+                'email_body':email_body,
+                'email_subject':'Password Reset',
+                'email_to': user.email
+            }
+
+            Util.send_email(data)
+        
+            return Response({
+                    f'success':'Password reset send to {email}',
+                }, status=status.HTTP_200_OK
+            )
+        return Response({
+            'error':'No user with the provided email found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+class PasswordTokenCheckView(generics.GenericAPIView):
+    def get(self, request, uidb64, token):
+        try:
+            
+            id = smart_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id=id)
+
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return Response({
+                    'error':'Token already used'
+                })
+                        
+            return Response({
+                'success':True,
+                'uidb64':user.id,
+                'token':token
+            })
+            
+        except DjangoUnicodeDecodeError as error:
+            return Response({
+                'error':'Invalid token'
+            })
+
+class SetNewPasswordView(generics.GenericAPIView):
+    serializer_class = setNewPasswordSerializer
+
+    def patch(self, request):
+        serializer = self.serializer_class(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        return Response({
+            'success':True,
+            'message':'Password reset successful'
+        }, status=status.HTTP_200_OK)
+
 class TokenPairViewClient(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerClient
@@ -60,19 +150,32 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
+        # user = request.data
+        # print(user)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
         user_data = serializer.data
         user = User.objects.get(email=user_data['email'])
 
-        token = RefreshToken.for_user(user).access_token
+        topt = pyotp.TOTP(settings.OTP_KEY)
 
-        current_site = get_current_site(request).domain
-        relative_link = reverse('verify-email')
-        abs_url = f'http://{current_site+relative_link+"?token="+str(token)}'
-        email_body = f'Hi {user.username} Verify your account using the link below \n {abs_url}'
+        otp = Util.generate_otp(topt)
+
+        OTP.objects.create(
+            otp = otp,
+            user = user
+        )
+
+        # user.save()
+
+        # token = RefreshToken.for_user(user).access_token
+
+        # current_site = get_current_site(request).domain
+        # relative_link = reverse('verify-email')
+        # abs_url = f'http://{current_site+relative_link+"?token="+str(token)}'
+        email_body = f'Hi {user.username} \nYour OTP is {otp}'
 
         data = {
             'email_body':email_body,
@@ -83,35 +186,113 @@ class RegisterView(generics.CreateAPIView):
         Util.send_email(data=data)
 
         return Response(user_data, status=status.HTTP_201_CREATED)
+    
+class ResendOTPView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
 
-class VerifyUserEmail(generics.GenericAPIView):
-    def get(self,request):
-        token = request.GET.get('token')
-        print(f'Token found {token}')
-                
+    def get(self, request):
+        try:            
+
+            user = User.objects.get(username=self.request.user)
+
+            if not user.is_verified:
+                topt = pyotp.TOTP(settings.OTP_KEY)
+
+                otp = Util.generate_otp(topt)
+
+                OTP.objects.create(
+                    otp = otp,
+                    user = user
+                )
+
+                email_body = f'Hi {user.username} \nYour OTP is {otp}'
+
+                data = {
+                    'email_body':email_body,
+                    'email_subject':'Email Verification',
+                    'email_to': user.email
+                }
+
+                Util.send_email(data=data)
+
+                return Response({
+                    'success':'OTP resend successfully'
+                },status=status.HTTP_201_CREATED)
+            else:
+                return Response({
+                    'detail':'User already verified'
+                },status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception:
+            return Response({
+                'error': 'Invalid request'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyUserEmailView(generics.GenericAPIView):
+    serializer_class = OTPSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self,request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        print(serializer.validated_data)
+
+        otp = serializer.validated_data['otp']
+        
+        print(self.request.user)
+
+        user = User.objects.get(username=self.request.user)
+        otp_object = OTP.objects.filter(user=user).last()
+
+        print(otp_object)
+
+        # print(f'Token found {token}')                
+            # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            # user = User.objects.get(id=payload['user_id'])
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-            user = User.objects.get(id=payload['user_id'])
-            print(user)
-            user.is_verified = True
-            user.save()
-            print("Account activated")
-
+            if not user.is_verified:
+                valid = Util.verify_otp(self, otp, otp_object)
+                print("--->",valid)
+                
+                if valid:
+                    if not user.is_verified:
+                        user.is_verified = True
+                        otp_object.used = True
+                        otp_object.save()
+                        user.save()
+                        return Response({
+                            'success':'Account activation success'
+                        }, status=status.HTTP_200_OK)
+                elif otp != otp_object.otp:
+                    print(otp_object.otp)
+                    return Response({
+                        'error':'Invalid OTP'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                elif otp_object.used:
+                    return Response({
+                        'error':'OTP already used'
+                    }, status.HTTP_400_BAD_REQUEST)                       
+            else:
+                return Response({
+                'error':'User already verified'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception:
             return Response({
-                'email':'Email account activated successfully'
-            }, status=status.HTTP_200_OK)
+                    'error':'No OTPs found'
+                }, status.HTTP_400_BAD_REQUEST) 
+        # except jwt.ExpiredSignatureError as error:            
+            # return redirect(f'{settings.APP_HOME}/request-newtoken')
+            # return Response({
+            #     'error':'Activation link expired'
+            # }, status=status.HTTP_400_BAD_REQUEST)        
         
-        except jwt.ExpiredSignatureError as error:
-            return Response({
-                'error':'Activation link expired'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        except jwt.exceptions.DecodeError as error:
-            return Response({
-                'error':'Invalid Token',
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-
+        # except jwt.exceptions.DecodeError as error:
+        #     # return redirect(f'{settings.APP_HOME}/request-newtoken')
+        #     return Response({
+        #         'error':'Invalid Token',
+        #     }, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
@@ -324,7 +505,6 @@ def send_message_signal(receiver, sender, instance):
 
     async_to_sync(send_message)()
     return Response(response_data) 
-
 
 def send_alert(instance, user):
     channel_layer = get_channel_layer()
