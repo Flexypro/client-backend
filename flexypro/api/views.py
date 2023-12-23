@@ -227,7 +227,7 @@ class ResendOTPView(generics.GenericAPIView):
                 'error': 'Invalid request'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-class VerifyUserEmailView(generics.GenericAPIView):
+class VerifyUserAccountView(generics.GenericAPIView):
     serializer_class = OTPSerializer
     permission_classes = [IsAuthenticated]
 
