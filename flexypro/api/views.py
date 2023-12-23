@@ -82,7 +82,7 @@ class ResetPasswordView(generics.GenericAPIView):
                 }
             )
             abs_url = f'http://{current_site+relative_link}'
-            email_body = f'Hi {user.username} Reset your account password with below \n {abs_url}'
+            email_body = f'Hi {user.username} Reset your account password with below\n{abs_url}'
 
             data = {
                 'email_body':email_body,
@@ -108,25 +108,24 @@ class PasswordTokenCheckView(generics.GenericAPIView):
             user = User.objects.get(id=id)
 
             if not PasswordResetTokenGenerator().check_token(user, token):
-                return Response({
-                    'error':'Token already used'
-                })
+                return redirect(f'{settings.USED_TOKEN_URL}{uidb64}/{token}')
+            
+            return redirect(f'{settings.PASSWORD_RESET_URL}{uidb64}/{token}')
                         
-            return Response({
-                'success':True,
-                'uidb64':user.id,
-                'token':token
-            })
+            # return Response({
+            #     'success':True,
+            #     'uidb64':user.id,
+            #     'token':token
+            # })
             
         except DjangoUnicodeDecodeError as error:
-            return Response({
-                'error':'Invalid token'
-            })
+            return redirect(f'{settings.BAD_TOKEN_URL}{uidb64}/{token}')
+
 
 class SetNewPasswordView(generics.GenericAPIView):
     serializer_class = setNewPasswordSerializer
 
-    def patch(self, request):
+    def put(self, request):
         serializer = self.serializer_class(data=request.data)
 
         serializer.is_valid(raise_exception=True)
@@ -228,7 +227,7 @@ class ResendOTPView(generics.GenericAPIView):
                 'error': 'Invalid request'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-class VerifyUserEmailView(generics.GenericAPIView):
+class VerifyUserAccountView(generics.GenericAPIView):
     serializer_class = OTPSerializer
     permission_classes = [IsAuthenticated]
 
