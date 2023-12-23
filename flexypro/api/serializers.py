@@ -27,36 +27,45 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework.exceptions import AuthenticationFailed
 
 class setNewPasswordSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
+    password_1 = serializers.CharField(
         write_only=True, 
         required=True, 
         validators=[validate_password],
+    )
+    password_2 = serializers.CharField(
+        write_only=True, 
+        required=True, 
     )
     token = serializers.CharField(min_length=1, write_only=True)
     uidb64 = serializers.CharField(min_length=1, write_only=True)
 
     class Meta:
         model=User
-        fields = ['password','token','uidb64']
+        fields = ['password_1','password_2','token','uidb64']
     
     def validate(self, attrs):
-        try:
-            password = attrs.get('password')
-            token = attrs.get('token')
-            uidb64 = attrs.get('uidb64')
+        # try:
+        password = attrs.get('password_1')
+        token = attrs.get('token')
+        uidb64 = attrs.get('uidb64')
 
-            id = force_str(urlsafe_base64_decode(uidb64))
-            user = User.objects.get(id=id)
+        if attrs.get('password_1') != attrs.get('password_2'):
+            print("Passwords did not match")
+            raise serializers.ValidationError({
+                'password_error':["Passwords did not match"]
+            })
 
-            if not PasswordResetTokenGenerator().check_token(user, token):
-                raise AuthenticationFailed('Reset link used', 401)
+        id = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(id=id)
+
+        if not PasswordResetTokenGenerator().check_token(user, token):
+            raise AuthenticationFailed({
+                'error':['Reset link used']
+            }, 401)
+        
+        user.set_password(password)
+        user.save()
             
-            user.set_password(password)
-            user.save()
-            
-        except Exception as e:
-            raise AuthenticationFailed('Reset link invalid', 401)
-
         return super().validate(attrs)
 
 class ResetPasswordSerializer(serializers.ModelSerializer):

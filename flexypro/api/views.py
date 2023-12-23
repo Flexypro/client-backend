@@ -82,7 +82,7 @@ class ResetPasswordView(generics.GenericAPIView):
                 }
             )
             abs_url = f'http://{current_site+relative_link}'
-            email_body = f'Hi {user.username} Reset your account password with below \n {abs_url}'
+            email_body = f'Hi {user.username} Reset your account password with below\n{abs_url}'
 
             data = {
                 'email_body':email_body,
@@ -111,12 +111,14 @@ class PasswordTokenCheckView(generics.GenericAPIView):
                 return Response({
                     'error':'Token already used'
                 })
+            
+            return redirect(f'http://localhost:5173/set-new-password/{uidb64}/{token}')
                         
-            return Response({
-                'success':True,
-                'uidb64':user.id,
-                'token':token
-            })
+            # return Response({
+            #     'success':True,
+            #     'uidb64':user.id,
+            #     'token':token
+            # })
             
         except DjangoUnicodeDecodeError as error:
             return Response({
@@ -126,7 +128,7 @@ class PasswordTokenCheckView(generics.GenericAPIView):
 class SetNewPasswordView(generics.GenericAPIView):
     serializer_class = setNewPasswordSerializer
 
-    def patch(self, request):
+    def put(self, request):
         serializer = self.serializer_class(data=request.data)
 
         serializer.is_valid(raise_exception=True)
