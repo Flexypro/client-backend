@@ -108,11 +108,9 @@ class PasswordTokenCheckView(generics.GenericAPIView):
             user = User.objects.get(id=id)
 
             if not PasswordResetTokenGenerator().check_token(user, token):
-                return Response({
-                    'error':'Token already used'
-                })
+                return redirect(f'{settings.USED_TOKEN_URL}{uidb64}/{token}')
             
-            return redirect(f'http://localhost:5173/set-new-password/{uidb64}/{token}')
+            return redirect(f'{settings.PASSWORD_RESET_URL}{uidb64}/{token}')
                         
             # return Response({
             #     'success':True,
@@ -121,9 +119,8 @@ class PasswordTokenCheckView(generics.GenericAPIView):
             # })
             
         except DjangoUnicodeDecodeError as error:
-            return Response({
-                'error':'Invalid token'
-            })
+            return redirect(f'{settings.BAD_TOKEN_URL}{uidb64}/{token}')
+
 
 class SetNewPasswordView(generics.GenericAPIView):
     serializer_class = setNewPasswordSerializer
