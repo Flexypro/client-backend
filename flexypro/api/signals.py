@@ -13,6 +13,7 @@ from .models import (
 from django.core.exceptions import ObjectDoesNotExist
 # from django.contrib.auth.models import User
 from .views import new_order_created, send_alert, send_message_signal
+from django.forms.models import model_to_dict
 
 @receiver(post_save, sender=User)
 def create_profile(instance, created, **kwargs):
@@ -48,6 +49,25 @@ def create_notification_new_order(instance, created, **kwargs):
             
         except ObjectDoesNotExist:
             pass
+
+@receiver(pre_save, sender=User)
+def account_activation(instance, **kwargs):
+    try:
+        old_instance = User.objects.get(pk=instance.pk)
+        print(model_to_dict(old_instance))
+        is_active_old = old_instance.is_verified
+    except User.DoesNotExist:
+        is_active_old = False
+        print("User not verified")        
+
+    print("Account activation success")
+    if is_active_old != instance.is_verified and (
+        is_active_old == False and instance.is_verified == True
+    ): Notification.objects.create(
+        user = instance,
+        message=f'Congratulations. You activated your Gigitise account. You can now create tasks with us.'
+    )
+
 
 @receiver(pre_save, sender=Order)
 def order_notification_update(instance, **kwargs):
@@ -90,7 +110,7 @@ def order_notification_update(instance, **kwargs):
             )            
 
     except:
-        pass
+        print("[Signal] Error creating notifications")
 
 @receiver(post_save, sender=Chat)
 def create_notification_chat(instance, **kwargs):
