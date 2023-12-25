@@ -25,6 +25,7 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework.exceptions import AuthenticationFailed
+from django.db.models import Q
 
 class setNewPasswordSerializer(serializers.ModelSerializer):
     password_1 = serializers.CharField(
@@ -247,8 +248,9 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def get_orders_count(self, profile):
         user = profile.user
-        client = Client.objects.get(user=user)        
-        orders_count = Order.objects.filter(client=client).count()
+        query = Q(client__user=user) | Q(freelancer__user=user)
+
+        orders_count = Order.objects.filter(query).count()
         return orders_count
     
     def to_representation(self, instance):

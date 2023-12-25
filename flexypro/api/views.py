@@ -82,7 +82,7 @@ class ResetPasswordView(generics.GenericAPIView):
                 }
             )
             abs_url = f'http://{current_site+relative_link}'
-            email_body = f'Hi {user.username} Reset your account password with below\n{abs_url}'
+            email_body = f'Hi {user.username}\nReset your account password with below\n{abs_url}'
 
             data = {
                 'email_body':email_body,
