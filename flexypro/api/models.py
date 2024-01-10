@@ -60,7 +60,6 @@ class OTP(models.Model):
     def __str__(self) -> str:
         return f'{self.otp}' + f' {str(self.user)}'
     
-
 class Client(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
@@ -108,6 +107,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=status_choices, default='In Progress')
     attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
     amount = models.FloatField()
+    paid = models.BooleanField(blank=True, null=True, default=True)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True, blank=True)
 
