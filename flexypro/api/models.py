@@ -168,7 +168,7 @@ class Transaction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return str(self.oder) + str(self.paypal_id)
+        return str(self.order) +'-'+ str(self.paypal_id)
     
     
 class Notification(models.Model):
