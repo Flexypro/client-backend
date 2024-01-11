@@ -68,7 +68,6 @@ def account_activation(instance, **kwargs):
         message=f'Congratulations. You activated your Gigitise account. You can now create tasks with us.'
     )
 
-
 @receiver(pre_save, sender=Order)
 def order_notification_update(instance, **kwargs):
     writer = Freelancer.objects.all()[0]
@@ -80,6 +79,16 @@ def order_notification_update(instance, **kwargs):
             Notification.objects.create(
                 user = writer,
                 message=f'Order - {instance.title}, instructions were updated. ',
+                order = instance
+            )
+
+        # Notification for paid order to writer
+        if old_order.paid != instance.status and (
+            instance.status == True
+        ):
+            Notification.objects.create(
+                user=writer,
+                message=f'Congratulations! Your order {instance.title} has been paid by the client.',
                 order = instance
             )
 
