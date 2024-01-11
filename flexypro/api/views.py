@@ -1,5 +1,6 @@
 from base64 import urlsafe_b64encode
 from email import utils
+import json
 from django.shortcuts import redirect, render
 import pyotp
 from rest_framework import viewsets
@@ -54,6 +55,8 @@ from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
 
+import requests
+from . import utils
 # from django_otp.exceptions import OTPVerificationError
 
 # Create your views here.
@@ -121,7 +124,6 @@ class PasswordTokenCheckView(generics.GenericAPIView):
         except DjangoUnicodeDecodeError as error:
             return redirect(f'{settings.BAD_TOKEN_URL}{uidb64}/{token}')
 
-
 class SetNewPasswordView(generics.GenericAPIView):
     serializer_class = setNewPasswordSerializer
 
@@ -186,6 +188,61 @@ class RegisterView(generics.CreateAPIView):
 
         return Response(user_data, status=status.HTTP_201_CREATED)
     
+class CreateCheckoutOrderView(generics.GenericAPIView):
+
+    def post(self, request):  
+        try:   
+            order_id = request.data['orderId']
+            order = Order.objects.get(id=order_id)        
+            amount = order.amount
+            access_token = utils.get_token()
+
+            # Create order
+            order = utils.create_order(amount=amount, access_token=access_token)
+            id = order['id']
+            return Response({
+                'id':id
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                'error':'Error while creating payment'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class CapturePaymentView(generics.GenericAPIView):
+    def post(self, request):
+        try:
+            paypalId = request.data['paypalId']
+            orderId = request.data['orderId']
+            order = Order.objects.get(id=orderId)
+            access_token = utils.get_token()
+            paypal_id, amount_value, paypal_fee_value, net_amount_value, currency_code, status_value = utils.capture_payment(paypalId, access_token)
+
+            # Create transaction
+            Transaction.objects.create(
+                paypal_id = paypal_id,
+                order = order,
+                status = status_value,
+                amount_value = amount_value,
+                paypal_fee_value = paypal_fee_value,
+                net_amount_value = net_amount_value,
+                currency_code = currency_code,
+                channel = 'Paypal',            
+            )
+
+            # Modify order to paid true
+            if not order.paid:
+                order.paid = True
+                order.save()
+
+            return Response({
+                'success':'Purchase complete'
+            }, status=status.HTTP_200_OK)
+        
+        except:
+            return Response({
+                'error':'Error occured during transaction'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
 class ResendOTPView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
