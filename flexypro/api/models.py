@@ -151,16 +151,24 @@ class Chat(models.Model):
         return str(str(self.sender) + ' to ' +str(self.receiver))
 
 class Transaction(models.Model):
+    channel_choices = [
+        ('Paypal','Paypal'),
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    paypal_id = models.CharField(blank=True, null=True, max_length=20)
     order = models.ForeignKey(Order, related_name='order_completed', on_delete=models.CASCADE, null=True, blank=True)    
-    _from = models.ForeignKey(Client,blank=True, related_name='_from', null=True, on_delete=models.CASCADE)
-    to = models.ForeignKey(User, related_name='to', blank=True, null=True, on_delete=models.CASCADE)
-    amount = models.FloatField()    
-
+    # _from = models.ForeignKey(Client,blank=True, related_name='_from', null=True, on_delete=models.CASCADE)
+    # to = models.ForeignKey(User, related_name='to', blank=True, null=True, on_delete=models.CASCADE)
+    amount_value = models.FloatField()   
+    paypal_fee_value = models.FloatField(blank=True, null=True) 
+    net_amount_value = models.FloatField(blank=True, null=True) 
+    currency_code = models.CharField(max_length=5, default='USD')
+    channel = models.CharField(max_length=20, choices=channel_choices, default='Paypal')
+    status = models.CharField(max_length=20, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return str(self.id)
+        return str(self.oder) + str(self.paypal_id)
     
     
 class Notification(models.Model):
