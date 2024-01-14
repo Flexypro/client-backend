@@ -1,6 +1,7 @@
 from base64 import urlsafe_b64encode
 from email import utils
 import json
+from django.http import Http404
 from django.shortcuts import redirect, render
 import pyotp
 from rest_framework import viewsets
@@ -15,6 +16,7 @@ from .models import (
     Solution,
     Profile,
     Freelancer, 
+    OTP,
     Bid,   
     )
 from .serializers import (
@@ -31,7 +33,8 @@ from .serializers import (
     ResetPasswordSerializer,
     setNewPasswordSerializer,
     OTPSerializer,
-    OTP
+    BidSerializer
+    
 )
 
 from rest_framework.decorators import action
@@ -400,17 +403,38 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         client = Client.objects.get(user = user)
-        # freelancer = Freelancer.objects.all()[0]
-        # serializer.save(client=client, freelancer=freelancer)
         serializer.save(client=client, )
-
 
     def get_queryset(self):
         user = self.request.user
-        query = Q(client__user=user) | Q(freelancer__user=user)
-            
-        return Order.objects.filter(query).order_by('-updated')
+        status = self.request.GET.get('status', None)
+        print(user)
+        query = Q(client__user=user) | Q(freelancer__user=user)          
 
+        if status:
+            if status == 'available':
+                if Client.objects.filter(user=user).exists():
+                    return Order.objects.filter(client__user=user, status='Available').order_by('-updated')
+                elif Freelancer.objects.filter(user=user).exists():
+                    return Order.objects.filter(status='Available').order_by('-updated')
+            elif status == 'in_progress':                
+                return Order.objects.filter(query, Q(status='In Progress')).order_by('-updated')
+            elif status == 'completed':
+                return Order.objects.filter(query, Q(status='Completed')).order_by('-updated')
+            else:
+                # Handle invalid status parameter
+                raise Http404("Invalid status parameter")
+
+        else:
+            return Order.objects.filter(query).order_by('-updated')
+            # return Response({
+            #     'error':'Invalid request'
+            # }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # query = Q(client__user=user) | Q(freelancer__user=user)            
+        # return Order.objects.filter(query).order_by('-updated')
+        return Order.objects.all().order_by('-updated')
+        
     def get_object(self):
         order_id = self.kwargs.get('pk')
         queryset = self.filter_queryset(self.get_queryset())
@@ -425,14 +449,92 @@ class OrderViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
 
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "chat_lobby", {
-                "type":"chat.message",
-                "message":"Order Compeleted"
-            }
-        )
+        # channel_layer = get_channel_layer()
+        # async_to_sync(channel_layer.group_send)(
+        #     "chat_lobby", {
+        #         "type":"chat.message",
+        #         "message":"Order Compeleted"
+        #     }
+        # )
         return super().update(request, *args, **kwargs)
+        
+    @action(detail=True, methods=['post'], url_path='bid')
+    def place_bid(self, request, pk=None):
+        order = self.get_object()
+        client = order.client
+        # user = User.objects.get(username=request.user)
+        user = request.user
+        freelancer = Freelancer.objects.get(user=user)        
+
+        try:            
+            bid_amount = float(request.data['amount'])
+            if bid_amount < order.amount:
+                return Response({
+                    'error':'Bid amount should be higher than order amount'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            Bid.objects.create(
+                order = order,
+                freelancer = freelancer,
+                client = client,
+                amount = bid_amount
+            )
+            return Response({
+                'success':'Bid placed successfully'
+            }, status=status.HTTP_201_CREATED)            
+        except Exception as e:
+            print(e)
+            return Response({
+                'error':'Error placing bid'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @place_bid.mapping.put
+    def update_bid(self, request, pk=None):
+        order = self.get_object()
+        user = request.user
+        freelancer = Freelancer.objects.get(user=user) 
+
+        try:            
+            bid_amount = float(request.data['amount'])
+
+            if bid_amount < order.amount:
+                return Response({
+                    'error':'Bid amount should be higher than order amount'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            q = Q(freelancer=freelancer) | Q(order=order)
+
+            bid = Bid.objects.filter(q).first()
+            bid.amount = bid_amount
+            bid.save()
+            return Response({
+                'success':'Bid updated successfully'
+            }, status=status.HTTP_200_OK)
+                    
+        except Exception as e:
+            print(e)
+            return Response({
+                'error':'Error updating bid'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @place_bid.mapping.delete
+    def cancel_delete(self, request, pk=None):
+        order = self.get_object()
+        user = request.user
+        freelancer = Freelancer.objects.get(user=user) 
+
+        try:      
+            q = Q(freelancer=freelancer) | Q(order=order)
+            bid = Bid.objects.filter(q).first()
+            bid.delete()
+            return Response({
+                'success':f'Bid deleted {bid.id}'
+            }, status=status.HTTP_204_NO_CONTENT)
+                    
+        except Exception as e:
+            print(e)
+            return Response({
+                'error':'Error updating bid'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['get'], url_path='solution')
     def get_solution(self, request, pk=None):
@@ -483,18 +585,27 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class BidViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
-    queryset = Bid.objects.all()
+# class BidViewSet(viewsets.ModelViewSet):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = BidSerializer
+#     queryset = Bid.objects.all()
 
-    def update(self, request, *args, **kwargs):
-        kwargs['partial'] = True
-        return super().update(request, *args, **kwargs)
+#     def create(self, request, *args, **kwargs):
+#         freelancer = self.request.user
+#         serializer = self.serializer_class(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         order_id = serializer.validated_data['orderId']
+#         order = Order.objects.get(id=order_id)
+#         order.freelancer = freelancer
+
+#     def update(self, request, *args, **kwargs):
+#         kwargs['partial'] = True
+#         return super().update(request, *args, **kwargs)
     
-    def get_queryset(self):
-        user = self.request.user
-        query = Q(client__user=user) | Q(freelancer__user=user)
-        return self.queryset.filter(query).order_by('-created_at')
+#     def get_queryset(self):
+#         user = self.request.user
+#         query = Q(client__user=user) | Q(freelancer__user=user)
+#         return self.queryset.filter(query).order_by('-created_at')
 
 class NotificationViewSet(viewsets.ModelViewSet):    
     queryset = Notification.objects.all()
