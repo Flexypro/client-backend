@@ -101,18 +101,36 @@ class Order(models.Model):
     deadline = models.DateTimeField()
     instructions = models.TextField(blank=True, null=True)
     status_choices = [
+        ('Available', 'Available'),
         ('In Progress','In Progress'),
         ('Completed','Completed')
     ]
-    status = models.CharField(max_length=20, choices=status_choices, default='In Progress')
+    status = models.CharField(max_length=20, choices=status_choices, default='Available')
     attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
     amount = models.FloatField()
-    paid = models.BooleanField(blank=True, null=True, default=True)
+    paid = models.BooleanField(blank=True, null=True, default=False)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True, blank=True)
 
+    def get_total_bids(self):
+        return self.bid_set.count()
+    
+    def get_bidders(self):
+        return self.bid_set
+    
     def __str__(self) -> str:
         return str(self.title)
+
+class Bid(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True, related_name='bid_set')
+    freelancer = models.OneToOneField(Freelancer, on_delete=models.CASCADE, blank=True, null=True)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, blank=True, null=True)
+    amount = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+
+    def __str__(self) -> str:
+        return str(self.order)
 
 class Solution(models.Model):
     solution_type =[

@@ -14,7 +14,8 @@ from .models import (
     Transaction, 
     Solution,
     Profile,
-    Freelancer,    
+    Freelancer, 
+    Bid,   
     )
 from .serializers import (
     OrderSerializer, 
@@ -243,6 +244,29 @@ class CapturePaymentView(generics.GenericAPIView):
                 'error':'Error occured during transaction'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+class HireWriterView(generics.GenericAPIView):
+    def post(self, request):
+        try:
+            bid_id = request.data['bidId']
+            bid = Bid.objects.get(id=bid_id)
+            order = bid.order
+            amount = bid.amount
+            freelancer = bid.freelancer
+            order.amount = amount
+            order.freelancer = freelancer
+            order.status = 'In Progress'
+            order.save()
+
+            Bid.objects.filter(order=order).delete()
+
+            return Response({
+                'success':'Order allocated to freelancer'
+            })
+        except:
+            return Response({
+                'error':'Error hiring writer'
+            })
+
 class ResendOTPView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -291,17 +315,9 @@ class VerifyUserAccountView(generics.GenericAPIView):
     def post(self,request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        print(serializer.validated_data)
-
         otp = serializer.validated_data['otp']
-        
-        print(self.request.user)
-
         user = User.objects.get(username=self.request.user)
         otp_object = OTP.objects.filter(user=user).last()
-
-        print(otp_object)
 
         # print(f'Token found {token}')                
             # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
@@ -384,8 +400,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         client = Client.objects.get(user = user)
-        freelancer = Freelancer.objects.all()[0]
-        serializer.save(client=client, freelancer=freelancer)
+        # freelancer = Freelancer.objects.all()[0]
+        # serializer.save(client=client, freelancer=freelancer)
+        serializer.save(client=client, )
+
 
     def get_queryset(self):
         user = self.request.user
@@ -448,13 +466,11 @@ class OrderViewSet(viewsets.ModelViewSet):
     def create_chat(self, request, pk=None):
         order = self.get_object()
         sender = request.user
-        receiver = order.client.user
+        receiver_username = request.data['receiver']
+        receiver = User.objects.get(username=receiver_username)
 
-        client = order.client.user
-        freelancer = order.freelancer.user
-
-        if sender == client:
-            receiver = freelancer
+        print(receiver)
+        # receiver = order.client.user
 
         serializer = ChatSerializer(data=request.data)
         if serializer.is_valid():
@@ -466,7 +482,20 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
+class BidViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Bid.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
+    
+    def get_queryset(self):
+        user = self.request.user
+        query = Q(client__user=user) | Q(freelancer__user=user)
+        return self.queryset.filter(query).order_by('-created_at')
+
 class NotificationViewSet(viewsets.ModelViewSet):    
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -497,44 +526,43 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return self.queryset.filter(_from=client).order_by('-timestamp')
 
 def new_order_created(order_instance, client, freelancer):
-    serialized_data = OrderSerializer(order_instance).data
-    response_data = {
-        "order":serialized_data
-    }
+    pass
+    # serialized_data = OrderSerializer(order_instance).data
+    # response_data = {
+    #     "order":serialized_data
+    # }
 
-    channel_layer = get_channel_layer()
-    client_room_id = client.id
-    freelancer_room_id = freelancer.id
+    # channel_layer = get_channel_layer()
+    # client_room_id = client.id
+    # freelancer_room_id = freelancer.id
     
-    async def send_order():
+    # async def send_order():
 
-        freelancer_room = f'order_{freelancer_room_id}' 
-        client_room = f'order_{client_room_id}'  
+    #     freelancer_room = f'order_{freelancer_room_id}' 
+    #     client_room = f'order_{client_room_id}'  
 
-        print(f'Senfing to Client {client_room} , Writer {freelancer_room}') 
+    #     try:
+    #     # Sending order to freelancer
+    #         await channel_layer.group_send(
+    #             freelancer_room, {
+    #                 'type':'new.order',
+    #                 'message':response_data
+    #             }
+    #         )
 
-        try:
-        # Sending order to freelancer
-            await channel_layer.group_send(
-                freelancer_room, {
-                    'type':'new.order',
-                    'message':response_data
-                }
-            )
-
-            # Sending order to client (owner)
-            await channel_layer.group_send(
-                client_room, {
-                    'type':'new.order',
-                    'message':response_data
-                }
-            )
-        except Exception as e:
-            print("Error => ", e)
+    #         # Sending order to client (owner)
+    #         await channel_layer.group_send(
+    #             client_room, {
+    #                 'type':'new.order',
+    #                 'message':response_data
+    #             }
+    #         )
+    #     except Exception as e:
+    #         print("Error => ", e)
 
 
-    async_to_sync(send_order)()
-    return Response(response_data) 
+    # async_to_sync(send_order)()
+    # return Response(response_data) 
 
 def send_message_signal(receiver, sender, instance):
 

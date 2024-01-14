@@ -15,6 +15,7 @@ from .models import (
     Freelancer,
     User,
     OTP,
+    Bid,
 
 )
 # from django.contrib.auth.models import User
@@ -185,15 +186,35 @@ class SolutionSerializer(serializers.ModelSerializer):
             'solution', '_type','created'
         ]  
 
+
+class BidSerializer(serializers.ModelSerializer):
+    freelancer = FreelancerSerializer(read_only=True)
+    client = ClientSerializer(read_only=True)
+
+    class Meta:
+        model = Bid
+        fields = '__all__'
+
 class OrderSerializer(serializers.ModelSerializer): 
     client = ClientSerializer(read_only=True)
     freelancer = FreelancerSerializer(read_only=True)
     solution = SolutionSerializer(read_only=True)
     rating = RatingSerializer(read_only=True)
+    total_bids = serializers.SerializerMethodField()
+    bidders = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = '__all__'
+    
+    def get_total_bids(self, obj):
+        return obj.get_total_bids()
+    
+    def get_bidders(self, obj):
+        bids =  obj.bid_set.all()
+        bid_serializer = BidSerializer(bids, many=True)
+        return bid_serializer.data
+
     
     # def get_solution(self,obj):
     #     return obj.solution
