@@ -17,7 +17,8 @@ from .views import (
     PasswordTokenCheckView,
     SetNewPasswordView,
     CreateCheckoutOrderView,
-    CapturePaymentView
+    CapturePaymentView,
+    HireWriterView,
 )
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
@@ -55,7 +56,10 @@ urlpatterns = [
 
     # Payment (Paypal checkout)
     path(f'{PREFIX}/create-order/', CreateCheckoutOrderView.as_view(), name='paypal-checkout'),
-    path(f'{PREFIX}/capture-payment/', CapturePaymentView.as_view(), name='capture payment')
+    path(f'{PREFIX}/capture-payment/', CapturePaymentView.as_view(), name='capture payment'),
+
+    # Allocated order
+    path(f'{PREFIX}/hire/', HireWriterView.as_view(), name='hire-freelancer')
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

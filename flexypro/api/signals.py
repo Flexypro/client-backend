@@ -25,30 +25,32 @@ def create_profile(instance, created, **kwargs):
         except:
             pass
 
-@receiver(post_save, sender=Order)
-def create_notification_new_order(instance, created, **kwargs):
-    if created:
-        freelancer = User.objects.get(username=instance.freelancer.user)
-        client = User.objects.get(username=instance.client.user)
-        new_order_created(instance, client, freelancer)
+# @receiver(post_save, sender=Order)
+# def create_notification_new_order(instance, created, **kwargs):
+#     freelancers = Freelancer.objects.all()
+#     if created:
+#         # freelancer = User.objects.get(username=instance.freelancer.user)
+#         # client = User.objects.get(username=instance.client.user)
+#         # new_order_created(instance, client, freelancer)
         
-        try:
-            # Create notification for freelancer when order is created
-            Notification.objects.create(
-                user = freelancer,
-                message=f'New order - {instance.title}, was created. Check order ASAP',
-                order = instance
-            )
+#         try:
+#             # Create notification for freelancer when order is created
 
-            # Create notification for client when order is created
-            Notification.objects.create(
-                user = instance.client.user,
-                message=f'You created a new order - {instance.title}',
-                order = instance
-            )
+#             # Notification.objects.create(
+#             #     user = freelancer,
+#             #     message=f'New order - {instance.title}, was created. Check order ASAP',
+#             #     order = instance
+#             # )
+
+#             # Create notification for client when order is created
+#             Notification.objects.create(
+#                 user = instance.client.user,
+#                 message=f'You created a new order - {instance.title}',
+#                 order = instance
+#             )
             
-        except ObjectDoesNotExist:
-            pass
+#         except ObjectDoesNotExist:
+#             print("Error occured creating notification")
 
 @receiver(pre_save, sender=User)
 def account_activation(instance, **kwargs):
@@ -70,51 +72,63 @@ def account_activation(instance, **kwargs):
 
 @receiver(pre_save, sender=Order)
 def order_notification_update(instance, **kwargs):
-    writer = Freelancer.objects.all()[0]
-    writer_receiver = User.objects.get(username=writer.user)
+    writer = instance.freelancer
+    if writer is not None:
+        writer_receiver = User.objects.get(username=writer.user)
+    else:
+        writer_receiver = None
+    if writer:
+        try:
+            old_order = Order.objects.get(pk=instance.pk)
 
-    try:
-        old_order = Order.objects.get(pk=instance.pk)
+            if old_order.status == 'Available' and (
+                instance.status == 'In Progress'
+            ):
+                Notification.objects.create(
+                    user = writer_receiver,
+                    message = f'Your bid has been accepted! Start working ASAP\nOrder - {instance.title}',
+                    order = instance
+                )
 
-        # Create notification for writer on updated instructions
-        if old_order.instructions != instance.instructions:
-            Notification.objects.create(
-                user = writer_receiver,
-                message=f'Order - {instance.title}, instructions were updated. ',
-                order = instance
-            )
+            # Create notification for writer on updated instructions
+            if old_order.instructions != instance.instructions:
+                Notification.objects.create(
+                    user = writer_receiver,
+                    message=f'Order - {instance.title}, instructions were updated. ',
+                    order = instance
+                )
 
-        # Notification for paid order to writer
-        if old_order.paid != instance.paid and (
-            instance.paid == True
-        ):
-            Notification.objects.create(
-                user=writer_receiver,
-                message=f'Congratulations! Your order {instance.title} has been paid by the client.',
-                order = instance
-            )
+            # Notification for paid order to writer
+            if old_order.paid != instance.paid and (
+                instance.paid == True
+            ):
+                Notification.objects.create(
+                    user=writer_receiver,
+                    message=f'Congratulations! Your order {instance.title} has been paid by the client.',
+                    order = instance
+                )
 
-        # Create notification for writer on completed order
-        if old_order.status != instance.status and (
-            instance.status == 'completed'
-        ):
-            
-            Notification.objects.create(
-                user = writer_receiver,
-                message=f'Order - {instance.title}, was completed. ',
-                order = instance
-            )
+            # Create notification for writer on completed order
+            if old_order.status != instance.status and (
+                instance.status == 'completed'
+            ):
+                
+                Notification.objects.create(
+                    user = writer_receiver,
+                    message=f'Order - {instance.title}, was completed. ',
+                    order = instance
+                )
 
-        # Create notification for new attachment
-        if old_order.attachment != instance.attachment and instance.attachment:
-            Notification.objects.create(
-                user = writer_receiver,
-                message =  f'There were new attachment for order - {instance.title}',
-                order = instance
-            )            
+            # Create notification for new attachment
+            if old_order.attachment != instance.attachment and instance.attachment:
+                Notification.objects.create(
+                    user = writer_receiver,
+                    message =  f'There were new attachment for order - {instance.title}',
+                    order = instance
+                )            
 
-    except Exception as e:
-        print("[Signal] ", e)
+        except Exception as e:
+            print("[Signal] ", e)
 
 @receiver(post_save, sender=Chat)
 def create_notification_chat(instance, **kwargs):

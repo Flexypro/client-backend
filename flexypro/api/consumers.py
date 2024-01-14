@@ -5,6 +5,8 @@ from channels.db import database_sync_to_async
 
 from .models import Order, User
 
+# class NewOrderCreated
+
 class OrderConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
