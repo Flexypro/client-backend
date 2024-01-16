@@ -124,10 +124,13 @@ class Order(models.Model):
 class Bid(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True, related_name='bid_set')
-    freelancer = models.OneToOneField(Freelancer, on_delete=models.CASCADE, blank=True, null=True)
+    freelancer = models.ForeignKey(Freelancer, on_delete=models.CASCADE, blank=True, null=True)
     client = models.ForeignKey(Client, on_delete=models.CASCADE, blank=True, null=True)
     amount = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('order','freelancer')
 
     def __str__(self) -> str:
         return str(self.order)

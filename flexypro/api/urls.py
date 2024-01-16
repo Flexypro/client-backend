@@ -32,8 +32,8 @@ PREFIX = settings.API_VERSION_PREFIX
 
 router = DefaultRouter()
 
-router.register(f'{PREFIX}/profile', ProfileViewSet, basename='profile')
 router.register(f'{PREFIX}/orders', OrderViewSet, basename='orders')
+router.register(f'{PREFIX}/profile', ProfileViewSet, basename='profile')
 router.register(f'{PREFIX}/notifications', NotificationViewSet, basename='notifications')
 router.register(f'{PREFIX}/solved', SolvedViewSet, basename='solved')
 router.register(f'{PREFIX}/transactions', TransactionViewSet, basename='transactions')

@@ -73,7 +73,8 @@ class setNewPasswordSerializer(serializers.ModelSerializer):
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(min_length=2)
     class Meta:
-        fields=['email']    
+        model = User
+        fields=['email']   
 
 class OTPSerializer(serializers.ModelSerializer):
     class Meta:
