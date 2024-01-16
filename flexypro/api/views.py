@@ -61,12 +61,16 @@ from django.contrib.sites.shortcuts import get_current_site
 
 import requests
 from . import utils
+from drf_yasg.utils import swagger_auto_schema
+
 # from django_otp.exceptions import OTPVerificationError
 
 # Create your views here.
 
 class ResetPasswordView(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
+    
+    @swagger_auto_schema(tags=['Password Reset'])
     def post(self, request):
         data={
             'request':request,
@@ -108,6 +112,8 @@ class ResetPasswordView(generics.GenericAPIView):
         }, status=status.HTTP_404_NOT_FOUND)
 
 class PasswordTokenCheckView(generics.GenericAPIView):
+    
+    swagger_schema = None    
     def get(self, request, uidb64, token):
         try:
             
@@ -117,20 +123,14 @@ class PasswordTokenCheckView(generics.GenericAPIView):
             if not PasswordResetTokenGenerator().check_token(user, token):
                 return redirect(f'{settings.USED_TOKEN_URL}{uidb64}/{token}')
             
-            return redirect(f'{settings.PASSWORD_RESET_URL}{uidb64}/{token}')
-                        
-            # return Response({
-            #     'success':True,
-            #     'uidb64':user.id,
-            #     'token':token
-            # })
-            
+            return redirect(f'{settings.PASSWORD_RESET_URL}{uidb64}/{token}')                        
         except DjangoUnicodeDecodeError as error:
             return redirect(f'{settings.BAD_TOKEN_URL}{uidb64}/{token}')
 
 class SetNewPasswordView(generics.GenericAPIView):
     serializer_class = setNewPasswordSerializer
-
+        
+    swagger_schema = None
     def put(self, request):
         serializer = self.serializer_class(data=request.data)
 
@@ -145,15 +145,24 @@ class TokenPairViewClient(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerClient
 
+    @swagger_auto_schema(tags=['Auth Token'])
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+    
 class TokenPairViewFreelancer(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerFreelancer
+
+    @swagger_auto_schema(tags=['Auth Token'])
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     # permission_classes = (AllowAny)
     serializer_class = RegisterSerializer
 
+    @swagger_auto_schema(tags=['Auth'])
     def post(self, request):
         # user = request.data
         # print(user)
@@ -194,6 +203,7 @@ class RegisterView(generics.CreateAPIView):
     
 class CreateCheckoutOrderView(generics.GenericAPIView):
 
+    @swagger_auto_schema(tags=['Paypal payment'])
     def post(self, request):  
         try:   
             order_id = request.data['orderId']
@@ -213,6 +223,8 @@ class CreateCheckoutOrderView(generics.GenericAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 class CapturePaymentView(generics.GenericAPIView):
+
+    @swagger_auto_schema(tags=['Paypal payment'])
     def post(self, request):
         try:
             paypalId = request.data['paypalId']
@@ -247,32 +259,10 @@ class CapturePaymentView(generics.GenericAPIView):
                 'error':'Error occured during transaction'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-class HireWriterView(generics.GenericAPIView):
-    def post(self, request):
-        try:
-            bid_id = request.data['bidId']
-            bid = Bid.objects.get(id=bid_id)
-            order = bid.order
-            amount = bid.amount
-            freelancer = bid.freelancer
-            order.amount = amount
-            order.freelancer = freelancer
-            order.status = 'In Progress'
-            order.save()
-
-            Bid.objects.filter(order=order).delete()
-
-            return Response({
-                'success':'Order allocated to freelancer'
-            })
-        except:
-            return Response({
-                'error':'Error hiring writer'
-            })
-
 class ResendOTPView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(tags=['Resend OTP'])
     def get(self, request):
         try:            
 
@@ -315,6 +305,7 @@ class VerifyUserAccountView(generics.GenericAPIView):
     serializer_class = OTPSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(tags=['Auth'])
     def post(self,request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -328,7 +319,6 @@ class VerifyUserAccountView(generics.GenericAPIView):
         try:
             if not user.is_verified:
                 valid = Util.verify_otp(self, otp, otp_object)
-                print("--->",valid)
                 
                 if valid:
                     if not user.is_verified:
@@ -340,7 +330,6 @@ class VerifyUserAccountView(generics.GenericAPIView):
                             'success':'Account activation success'
                         }, status=status.HTTP_200_OK)
                 elif otp != otp_object.otp:
-                    print(otp_object.otp)
                     return Response({
                         'error':'Invalid OTP'
                     }, status=status.HTTP_400_BAD_REQUEST)
@@ -369,26 +358,17 @@ class VerifyUserAccountView(generics.GenericAPIView):
         #         'error':'Invalid Token',
         #     }, status=status.HTTP_400_BAD_REQUEST)
 
-class ProfileViewSet(viewsets.ModelViewSet):
-    queryset = Profile.objects.all()
-    serializer_class = ProfileSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get','put']
-
-    def update(self, request, *args, **kwargs):
-        kwargs['partial'] = True
-        return super().update(request, *args, **kwargs)
-    
-    def get_queryset(self):
-        current_user = self.request.user
-        return self.queryset.filter(user=current_user)
-
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post', 'update', 'put']
 
+    @swagger_auto_schema(tags=['Order'])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=['Order'])
     def create(self, request, *args, **kwargs):        
         serializer = self.get_serializer(data=request.data)
 
@@ -400,6 +380,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             print(serializer.errors)
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(tags=['Order'])
     def perform_create(self, serializer):
         user = self.request.user
         client = Client.objects.get(user = user)
@@ -408,7 +389,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         status = self.request.GET.get('status', None)
-        print(user)
         query = Q(client__user=user) | Q(freelancer__user=user)          
 
         if status:
@@ -434,6 +414,15 @@ class OrderViewSet(viewsets.ModelViewSet):
         # query = Q(client__user=user) | Q(freelancer__user=user)            
         # return Order.objects.filter(query).order_by('-updated')
         return Order.objects.all().order_by('-updated')
+    
+    @swagger_auto_schema(tags=['Order'])
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=['Order'])
+    def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
         
     def get_object(self):
         order_id = self.kwargs.get('pk')
@@ -446,6 +435,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         except:
             raise NotFound("The order was not Found")
 
+    @swagger_auto_schema(tags=['Order'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
 
@@ -457,7 +447,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         #     }
         # )
         return super().update(request, *args, **kwargs)
-        
+    
+    @swagger_auto_schema(tags=['Bid'])
     @action(detail=True, methods=['post'], url_path='bid')
     def place_bid(self, request, pk=None):
         order = self.get_object()
@@ -487,6 +478,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'error':'Error placing bid'
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    @swagger_auto_schema(tags=['Bid'])
     @place_bid.mapping.put
     def update_bid(self, request, pk=None):
         order = self.get_object()
@@ -516,6 +508,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'error':'Error updating bid'
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    @swagger_auto_schema(tags=['Bid'])
     @place_bid.mapping.delete
     def cancel_delete(self, request, pk=None):
         order = self.get_object()
@@ -536,6 +529,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'error':'Error updating bid'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(tags=['Order Solution'])
     @action(detail=True, methods=['get'], url_path='solution')
     def get_solution(self, request, pk=None):
         order = self.get_object()
@@ -544,6 +538,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     # @action(detail=True, methods=['post'], url_path='create-solution')
+    @swagger_auto_schema(tags=['Order Solution'])
     @get_solution.mapping.post
     def post_solution(self, request, pk=None):
         order = self.get_object()
@@ -556,6 +551,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
 
+    @swagger_auto_schema(tags=['Chat'])
     @action(detail=True, methods=['get'], url_path='chats')
     def order_chats(self, request, pk=None):
         order = self.get_object()
@@ -564,15 +560,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     # @action(detail=True, methods=['post'], url_path='create-chat')
+    @swagger_auto_schema(tags=['Chat'])
     @order_chats.mapping.post
     def create_chat(self, request, pk=None):
         order = self.get_object()
         sender = request.user
         receiver_username = request.data['receiver']
         receiver = User.objects.get(username=receiver_username)
-
-        print(receiver)
-        # receiver = order.client.user
 
         serializer = ChatSerializer(data=request.data)
         if serializer.is_valid():
@@ -584,6 +578,55 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class HireWriterView(generics.GenericAPIView):
+    
+    @swagger_auto_schema(tags=['Bid'])
+    def post(self, request):
+        try:
+            bid_id = request.data['bidId']
+            bid = Bid.objects.get(id=bid_id)
+            order = bid.order
+            amount = bid.amount
+            freelancer = bid.freelancer
+            order.amount = amount
+            order.freelancer = freelancer
+            order.status = 'In Progress'
+            order.save()
+
+            Bid.objects.filter(order=order).delete()
+
+            return Response({
+                'success':'Order allocated to freelancer'
+            })
+        except:
+            return Response({
+                'error':'Error hiring writer'
+            })
+
+class ProfileViewSet(viewsets.ModelViewSet):
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get','put']
+
+    @swagger_auto_schema(tags=['Profile'])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
+    @swagger_auto_schema(tags=['Profile'])
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=['Profile'])
+    def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
+    
+    def get_queryset(self):
+        current_user = self.request.user
+        return self.queryset.filter(user=current_user)
 
 # class BidViewSet(viewsets.ModelViewSet):
 #     permission_classes = [IsAuthenticated]
@@ -612,11 +655,27 @@ class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get','put']
+    
+    @swagger_auto_schema(tags=['Notification'])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
+    @swagger_auto_schema(tags=['Notification'])
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=['Notification'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
         return super().update(request, *args, **kwargs)
 
+
+    @swagger_auto_schema(tags=['Notification'])
+    def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=['Notification'])
     def get_queryset(self):
         user = self.request.user        
         return self.queryset.filter(user=user).order_by('-created_at')
@@ -626,6 +685,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get']
+
+    @swagger_auto_schema(tags=['Transactions'])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
+    @swagger_auto_schema(tags=['Transactions'])
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user
@@ -726,9 +793,12 @@ def send_alert(instance, user):
 
 '''--------------------------To be implemented fully--------------------------------'''
 
+
 class SolvedViewSet(viewsets.ModelViewSet):
     queryset = Solved.objects.all()
     serializer_class = SolvedSerializer
+
+    swagger_schema = None        
 
     def get_object(self):
         order_id = self.kwargs.get('pk')

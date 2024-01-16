@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'drf_yasg',
+
     'api.apps.ApiConfig',
     'rest_framework',
     'corsheaders',    
@@ -206,3 +208,17 @@ USED_TOKEN_URL = env('USED_TOKEN_URL')
 # Otp conf
 OTP_KEY = 'base32secret3232'
 OTP_RETRY = 5
+
+# Swagger UI
+SWAGGER_SETTINGS = {
+   'SECURITY_DEFINITIONS': {
+      'Basic': {
+            'type': 'basic'
+      },
+      'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+      }
+   }
+}
