@@ -447,7 +447,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='bid')
     def place_bid(self, request, pk=None):
         print("placing bid")
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.get(id=order_id)
         client = order.client
         # user = User.objects.get(username=request.user)
         user = request.user
@@ -477,7 +478,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Bid'])
     @place_bid.mapping.put
     def update_bid(self, request, pk=None):
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.get(id=order_id)
         user = request.user
         freelancer = Freelancer.objects.get(user=user) 
 
