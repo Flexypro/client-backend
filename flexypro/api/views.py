@@ -389,18 +389,23 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         status = self.request.GET.get('status', None)
+        bidding = self.request.GET.get('bidding', None)        
         query = Q(client__user=user) | Q(freelancer__user=user)          
 
-        if status:
+        if status or bidding:
             if status == 'available':
                 if Client.objects.filter(user=user).exists():
                     return Order.objects.filter(client__user=user, status='Available').order_by('-updated')
                 elif Freelancer.objects.filter(user=user).exists():
-                    return Order.objects.filter(status='Available').order_by('-updated')
+                    return Order.objects.filter(status='Available').order_by('-updated').exclude(bid_set__freelancer__user=user)
             elif status == 'in_progress':                
                 return Order.objects.filter(query, Q(status='In Progress')).order_by('-updated')
             elif status == 'completed':
                 return Order.objects.filter(query, Q(status='Completed')).order_by('-updated')
+
+            elif bidding =='true':
+                freelancer = Freelancer.objects.get(user=user)
+                return Order.objects.filter(bid_set__freelancer__user=user)
             else:
                 # Handle invalid status parameter
                 raise Http404("Invalid status parameter")
@@ -448,7 +453,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     def place_bid(self, request, pk=None):
         print("placing bid")
         order_id =self.kwargs.get('pk')
-        order = Order.objects.get(id=order_id)
+        order = Order.objects.filter(id=order_id, status='Available').first()
         client = order.client
         # user = User.objects.get(username=request.user)
         user = request.user
@@ -479,7 +484,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     @place_bid.mapping.put
     def update_bid(self, request, pk=None):
         order_id =self.kwargs.get('pk')
-        order = Order.objects.get(id=order_id)
+        order = Order.objects.filter(id=order_id, status='Available').first()
         user = request.user
         freelancer = Freelancer.objects.get(user=user) 
 
@@ -509,7 +514,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Bid'])
     @place_bid.mapping.delete
     def cancel_delete(self, request, pk=None):
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.filter(id=order_id, status='Available').first()
         user = request.user
         freelancer = Freelancer.objects.get(user=user) 
 
@@ -576,6 +582,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class BidView(generics.GenericAPIView):
+    serializer_class = BidSerializer()
+
+    def get(self):
+        user = self.request.user
+        freelancer = Freelancer.objects.get(user=user)
+        user_bids = Bid.objects.filter(freelancer=freelancer)
+        return Response(self.get_serializer(user_bids))
 
 
 class HireWriterView(generics.GenericAPIView):
