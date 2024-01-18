@@ -405,19 +405,14 @@ class OrderViewSet(viewsets.ModelViewSet):
                 # Handle invalid status parameter
                 raise Http404("Invalid status parameter")
 
-        else:
-            return Order.objects.filter(query).order_by('-updated')
-            # return Response({
-            #     'error':'Invalid request'
-            # }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # query = Q(client__user=user) | Q(freelancer__user=user)            
-        # return Order.objects.filter(query).order_by('-updated')
-        return Order.objects.all().order_by('-updated')
-    
+        return Order.objects.filter(query).order_by('-updated')
+            
     @swagger_auto_schema(tags=['Order'])
     def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+        order_id = self.kwargs.get('pk')  # Assuming 'pk' is used for order ID in the URL
+        order = Order.objects.get(id=order_id)    
+        serializer = self.get_serializer(order)            
+        return Response(serializer.data)
 
     @swagger_auto_schema(tags=['Order'])
     def update(self, request, *args, **kwargs):
@@ -430,7 +425,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         try:
             obj = queryset.get(id=order_id)
-            self.check_object_permissions(self.request, obj)
+            # self.check_object_permissions(self.request, obj)
             return obj
         except:
             raise NotFound("The order was not Found")
@@ -451,6 +446,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Bid'])
     @action(detail=True, methods=['post'], url_path='bid')
     def place_bid(self, request, pk=None):
+        print("placing bid")
         order = self.get_object()
         client = order.client
         # user = User.objects.get(username=request.user)
@@ -582,7 +578,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class HireWriterView(generics.GenericAPIView):
     
-    @swagger_auto_schema(tags=['Bid'])
+    @swagger_auto_schema(tags=['Order'])
     def post(self, request):
         try:
             bid_id = request.data['bidId']
