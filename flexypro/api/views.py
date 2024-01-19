@@ -242,7 +242,9 @@ class CapturePaymentView(generics.GenericAPIView):
                 paypal_fee_value = paypal_fee_value,
                 net_amount_value = net_amount_value,
                 currency_code = currency_code,
-                channel = 'Paypal',            
+                channel = 'Paypal',  
+                _from  = order.client.user,
+                _to = order.freelancer.user       
             )
 
             # Modify order to paid true
@@ -254,7 +256,8 @@ class CapturePaymentView(generics.GenericAPIView):
                 'success':'Purchase complete'
             }, status=status.HTTP_200_OK)
         
-        except:
+        except Exception as e:
+            print(e)
             return Response({
                 'error':'Error occured during transaction'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -713,8 +716,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if user.is_staff:    
             return self.queryset.filter(to=user)  
 
-        client = Client.objects.get(user=user)
-        return self.queryset.filter(_from=client).order_by('-timestamp')
+        q = Q(_from = user) | Q(_to = user)
+        return self.queryset.filter(q).order_by('-timestamp')
 
 def new_order_created(order_instance, client, freelancer):
     pass
