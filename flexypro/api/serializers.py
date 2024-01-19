@@ -294,8 +294,8 @@ class ChatSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class TransactionSerializer(serializers.ModelSerializer):
-    _from = ClientSerializer(read_only=True)
-    to = UserSerializer(read_only=True)
+    _from = serializers.CharField(source='_from.username', read_only=True)
+    _to = serializers.CharField(source='_to.username', read_only=True)
     class Meta:
         model = Transaction
         fields = '__all__'
