@@ -365,7 +365,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'update', 'put']
+    http_method_names = ['get', 'post', 'update', 'put', 'delete']
 
     @swagger_auto_schema(tags=['Order'])
     def list(self, request, *args, **kwargs):
@@ -473,7 +473,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                 client = client,
                 amount = bid_amount
             )
-
             serializer = BidSerializer(bid, many=True)
             return Response(serializer.data)            
         except Exception as e:
@@ -491,9 +490,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         freelancer = Freelancer.objects.get(user=user) 
 
         try:            
-            bid_amount = float(request.data['amount'])
+            amt = float(request.data['amount'])
 
-            if bid_amount < order.amount:
+            if amt < order.amount:
                 return Response({
                     'error':'Bid amount should be higher than order amount'
                 }, status=status.HTTP_400_BAD_REQUEST)
@@ -501,11 +500,13 @@ class OrderViewSet(viewsets.ModelViewSet):
             q = Q(freelancer=freelancer) | Q(order=order)
 
             bid = Bid.objects.filter(q).first()
-            bid.amount = bid_amount
-            bid.save()
+            bid.amount = amt
+            bid.save() 
+            _bid = Bid.objects.filter(q).first()
+            print(_bid.amount)
             serializer = BidSerializer(bid)
-            return Response(serializer.data)
-                    
+
+            return Response(serializer.data)          
         except Exception as e:
             print(e)
             return Response({
