@@ -454,7 +454,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Bid'])
     @action(detail=True, methods=['post'], url_path='bid')
     def place_bid(self, request, pk=None):
-        print("placing bid")
         order_id =self.kwargs.get('pk')
         order = Order.objects.filter(id=order_id, status='Available').first()
         client = order.client
@@ -468,15 +467,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                 return Response({
                     'error':'Bid amount should be higher than order amount'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            Bid.objects.create(
+            bid = Bid.objects.create(
                 order = order,
                 freelancer = freelancer,
                 client = client,
                 amount = bid_amount
             )
-            return Response({
-                'success':'Bid placed successfully'
-            }, status=status.HTTP_201_CREATED)            
+
+            serializer = BidSerializer(bid, many=True)
+            return Response(serializer.data)            
         except Exception as e:
             print(e)
             return Response({
@@ -504,9 +503,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             bid = Bid.objects.filter(q).first()
             bid.amount = bid_amount
             bid.save()
-            return Response({
-                'success':'Bid updated successfully'
-            }, status=status.HTTP_200_OK)
+            serializer = BidSerializer(bid)
+            return Response(serializer.data)
                     
         except Exception as e:
             print(e)
