@@ -473,7 +473,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 client = client,
                 amount = bid_amount
             )
-            serializer = BidSerializer(bid, many=True)
+            serializer = BidSerializer(bid)
             return Response(serializer.data)            
         except Exception as e:
             print(e)
@@ -560,16 +560,21 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Chat'])
     @action(detail=True, methods=['get'], url_path='chats')
     def order_chats(self, request, pk=None):
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.filter(id=order_id,).first()
+        if order.status != 'Available':
+            order = self.get_object()
         chats = Chat.objects.filter(order=order)
         serializer = ChatSerializer(chats, many=True)
         return Response(serializer.data)
     
-    # @action(detail=True, methods=['post'], url_path='create-chat')
     @swagger_auto_schema(tags=['Chat'])
     @order_chats.mapping.post
     def create_chat(self, request, pk=None):
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.filter(id=order_id,).first()
+        if order.status != 'Available':
+            order = self.get_object()
         sender = request.user
         receiver_username = request.data['receiver']
         receiver = User.objects.get(username=receiver_username)
@@ -718,44 +723,43 @@ class TransactionViewSet(viewsets.ModelViewSet):
         q = Q(_from = user) | Q(_to = user)
         return self.queryset.filter(q).order_by('-timestamp')
 
-def new_order_created(order_instance, client, freelancer):
-    pass
-    # serialized_data = OrderSerializer(order_instance).data
-    # response_data = {
-    #     "order":serialized_data
-    # }
+def new_order_created(order_instance, client,):    
+    serialized_data = OrderSerializer(order_instance).data
+    response_data = {
+        "order":serialized_data
+    }
 
-    # channel_layer = get_channel_layer()
-    # client_room_id = client.id
-    # freelancer_room_id = freelancer.id
+    channel_layer = get_channel_layer()
+    client_room_id = client.id
+    freelancer_room_id = 'freelancer'
     
-    # async def send_order():
+    async def send_order():
 
-    #     freelancer_room = f'order_{freelancer_room_id}' 
-    #     client_room = f'order_{client_room_id}'  
+        freelancer_room = f'order_{freelancer_room_id}' 
+        client_room = f'order_{client_room_id}'  
 
-    #     try:
-    #     # Sending order to freelancer
-    #         await channel_layer.group_send(
-    #             freelancer_room, {
-    #                 'type':'new.order',
-    #                 'message':response_data
-    #             }
-    #         )
+        try:
+            # Sending order to freelancer
+            await channel_layer.group_send(
+                freelancer_room, {
+                    'type':'new.order',
+                    'message':response_data
+                }
+            )
 
-    #         # Sending order to client (owner)
-    #         await channel_layer.group_send(
-    #             client_room, {
-    #                 'type':'new.order',
-    #                 'message':response_data
-    #             }
-    #         )
-    #     except Exception as e:
-    #         print("Error => ", e)
+            # Sending order to client (owner)
+            await channel_layer.group_send(
+                client_room, {
+                    'type':'new.order',
+                    'message':response_data
+                }
+            )
+        except Exception as e:
+            print("Error => ", e)
 
 
-    # async_to_sync(send_order)()
-    # return Response(response_data) 
+    async_to_sync(send_order)()
+    return Response(response_data) 
 
 def send_message_signal(receiver, sender, instance):
 
