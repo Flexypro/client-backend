@@ -8,8 +8,10 @@ from .models import (
     Solution, 
     Profile, 
     Freelancer,
-    User
+    User,
+    Bid,
 )
+from .serializers import OrderSerializer
 from django.core.exceptions import ObjectDoesNotExist
 # from django.contrib.auth.models import User
 from .views import new_order_created, send_alert, send_message_signal
@@ -24,6 +26,24 @@ def create_profile(instance, created, **kwargs):
             )
         except:
             print("Error creating user profile")
+
+@receiver(post_save, sender=Bid)
+def create_notification_bid(instance, created, **kwargs):
+    if created:
+        order = instance.order
+        serializer = OrderSerializer(order)
+        serializer_data = serializer.data
+
+        if serializer_data['total_bids'] == 1:
+            try:
+                user = instance.client.user
+                Notification.objects.create(
+                    user = user,
+                    message = f'Your order, {instance.order.title} has new bids',
+                    order = order
+                )
+            except Exception as e:
+                print("Error=> ", e)
 
 @receiver(post_save, sender=Order)
 def create_notification_new_order(instance, created, **kwargs):
@@ -54,7 +74,6 @@ def create_notification_new_order(instance, created, **kwargs):
 def account_activation(instance, **kwargs):
     try:
         old_instance = User.objects.get(pk=instance.pk)
-        print(model_to_dict(old_instance))
         is_active_old = old_instance.is_verified
     except User.DoesNotExist:
         is_active_old = False
@@ -164,7 +183,7 @@ def create_notification_solution(instance, **kwargs):
     except Exception as e:
         print("Error => ",e)
 
-# @receiver(post_save, sender=Notification)
-# def notification_send_alert(instance, **kwargs):
-#     user = instance.user
-#     send_alert(instance, user)
+@receiver(post_save, sender=Notification)
+def notification_send_alert(instance, **kwargs):
+    user = instance.user
+    send_alert(instance, user)
