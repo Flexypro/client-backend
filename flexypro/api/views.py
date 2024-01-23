@@ -380,7 +380,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         else:
-            print(serializer.errors)
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(tags=['Order'])
@@ -503,7 +502,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             bid.amount = amt
             bid.save() 
             _bid = Bid.objects.filter(q).first()
-            print(_bid.amount)
             serializer = BidSerializer(bid)
 
             return Response(serializer.data)          
