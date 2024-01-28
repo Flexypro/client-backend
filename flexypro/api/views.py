@@ -466,13 +466,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                 return Response({
                     'error':'Bid amount should be higher than order amount'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            bid = Bid.objects.create(
+            Bid.objects.create(
                 order = order,
                 freelancer = freelancer,
                 client = client,
                 amount = bid_amount
             )
-            serializer = BidSerializer(bid)
+            
+            updated_order = Order.objects.filter(id=order_id,).first()
+
+            serializer = OrderSerializer(updated_order)
             return Response(serializer.data)            
         except Exception as e:
             print(e)
@@ -523,9 +526,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             q = Q(freelancer=freelancer) | Q(order=order)
             bid = Bid.objects.filter(q).first()
             bid.delete()
-            return Response({
-                'success':f'Bid deleted {bid.id}'
-            }, status=status.HTTP_204_NO_CONTENT)
+            updated_order = Order.objects.filter(id=order_id,).first()
+
+            serializer = OrderSerializer(updated_order)
+            return Response(serializer.data)            
                     
         except Exception as e:
             print(e)
