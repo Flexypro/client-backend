@@ -105,6 +105,9 @@ class Order(models.Model):
         ('In Progress','In Progress'),
         ('Completed','Completed')
     ]
+    subcategory = models.CharField(max_length=40, blank=True, null=True)
+    milestones = models.IntegerField(blank=True, null=True)
+    page_count = models.IntegerField(blank=True, null=True)     
     status = models.CharField(max_length=20, choices=status_choices, default='Available')
     attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
     amount = models.FloatField()
