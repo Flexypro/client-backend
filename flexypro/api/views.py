@@ -680,7 +680,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         user_params = self.request.GET.get('user')
         if user_params:            
             try: 
-                user = User.objects.get(username=user_params)                              
+                user = User.objects.get(username=user_params)                                              
                 return self.queryset.filter(user=user)          
             except user.DoesNotExist:
                 raise NotFound("Profile not found")

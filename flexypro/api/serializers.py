@@ -228,11 +228,21 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ['id','user','message', 'order_id', 'read_status', 'created_at']
         ordering = ['-created_at']
+
+class OrderViewRequestSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Order
+        fields = [
+            'title','rating','category','status','subcategory','milestones','page_count','created'
+        ]
+
 class ProfileViewRequestSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)
     orders_count = serializers.SerializerMethodField()
     completed = serializers.SerializerMethodField()
     in_progress = serializers.SerializerMethodField()
+    orders = OrderViewRequestSerializer(many=True,read_only=True)
     is_verified = serializers.CharField(source='user.is_verified', read_only=True)
     class Meta:
         model = Profile
@@ -244,9 +254,21 @@ class ProfileViewRequestSerializer(serializers.ModelSerializer):
             'orders_count',
             'in_progress',
             'completed',
+            'orders',
             'bio', 
             'profile_photo'
         ]
+    
+    def get_orders(self, profile):
+        user = profile.user
+        query = Q(client__user=user) | Q(freelancer__user=user)
+        orders = Order.objects.filter(query, Q(status='Completed') | Q(status='In Progress'))
+        return orders
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance=instance)
+        data['orders'] = OrderViewRequestSerializer(self.get_orders(instance), many=True).data
+        return data
     
     def get_in_progress(self,profile):
         user = profile.user
