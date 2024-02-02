@@ -546,6 +546,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = SolutionSerializer(solution, many=True)
         return Response(serializer.data)
     
+    @swagger_auto_schema(tags=['Order Solution'])
+    @get_solution.mapping.delete
+    def delete_solution(self, request, pk=None):
+        solution_id = self.request.GET.get('solution-id')
+        order = self.get_object()
+        if (order.status == 'Completed'):
+            return Response({
+                'error':'Not allowed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            solution = Solution.objects.get(id=solution_id)
+            solution.delete()
+            return Response({
+                'success':solution_id
+            }, status=status.HTTP_200_OK)
+        except Solution.DoesNotExist:
+            raise NotFound('Solution not found')
+
+    
     # @action(detail=True, methods=['post'], url_path='create-solution')
     @swagger_auto_schema(tags=['Order Solution'])
     @get_solution.mapping.post

@@ -184,7 +184,7 @@ class SolutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Solution
         fields = [
-            'solution', '_type','created'
+            'id','solution', '_type','created'
         ]  
 
 
