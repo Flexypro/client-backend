@@ -21,7 +21,8 @@ from .models import (
     )
 from .serializers import (
     OrderSerializer, 
-    NotificationSerializer, 
+    NotificationSerializer,
+    ProfileViewRequestSerializer, 
     SolvedSerializer,
     ChatSerializer,
     TransactionSerializer, 
@@ -646,9 +647,29 @@ class ProfileViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True
         return super().update(request, *args, **kwargs)
     
+    def get_serializer_class(self):
+        user_params = self.request.GET.get('user')
+
+        if user_params:
+            return ProfileViewRequestSerializer
+        else:
+            return ProfileSerializer
+        
+    
     def get_queryset(self):
         current_user = self.request.user
-        return self.queryset.filter(user=current_user)
+        user_params = self.request.GET.get('user')
+        if user_params:            
+            try: 
+                user = User.objects.get(username=user_params)                              
+                return self.queryset.filter(user=user)          
+            except user.DoesNotExist:
+                raise NotFound("Profile not found")
+                
+        else:
+            return self.queryset.filter(user=current_user)
+    
+    
 
 # class BidViewSet(viewsets.ModelViewSet):
 #     permission_classes = [IsAuthenticated]
