@@ -366,7 +366,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'update', 'put', 'delete']    
+    http_method_names = ['get', 'post', 'update', 'put', 'delete']
 
     @swagger_auto_schema(tags=['Order'])
     def list(self, request, *args, **kwargs):
