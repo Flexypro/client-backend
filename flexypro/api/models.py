@@ -105,6 +105,9 @@ class Order(models.Model):
         ('In Progress','In Progress'),
         ('Completed','Completed')
     ]
+    subcategory = models.CharField(max_length=40, blank=True, null=True)
+    milestones = models.IntegerField(blank=True, null=True)
+    page_count = models.IntegerField(blank=True, null=True)     
     status = models.CharField(max_length=20, choices=status_choices, default='Available')
     attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
     amount = models.FloatField()
@@ -152,13 +155,13 @@ class Solution(models.Model):
 class Rating(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.OneToOneField(Order, on_delete=models.CASCADE)
-    rating = models.FloatField(blank=True,null=True)
+    stars = models.FloatField(blank=True,null=True)
     message = models.CharField(max_length=150, blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True, null=True)
 
 
     def __str__(self) -> str:
-        return str(self.rating) + str(self.order)
+        return str(self.stars) +'-'+ str(self.order)
 
 class Chat(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

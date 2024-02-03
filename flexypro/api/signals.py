@@ -8,8 +8,10 @@ from .models import (
     Solution, 
     Profile, 
     Freelancer,
-    User
+    User,
+    Bid,
 )
+from .serializers import OrderSerializer
 from django.core.exceptions import ObjectDoesNotExist
 # from django.contrib.auth.models import User
 from .views import new_order_created, send_alert, send_message_signal
@@ -23,15 +25,31 @@ def create_profile(instance, created, **kwargs):
                 user = instance,            
             )
         except:
-            pass
+            print("Error creating user profile")
 
-# @receiver(post_save, sender=Order)
-# def create_notification_new_order(instance, created, **kwargs):
-#     freelancers = Freelancer.objects.all()
-#     if created:
-#         # freelancer = User.objects.get(username=instance.freelancer.user)
-#         # client = User.objects.get(username=instance.client.user)
-#         # new_order_created(instance, client, freelancer)
+@receiver(post_save, sender=Bid)
+def create_notification_bid(instance, created, **kwargs):
+    if created:
+        order = instance.order
+        serializer = OrderSerializer(order)
+        serializer_data = serializer.data
+
+        if serializer_data['total_bids'] == 1:
+            try:
+                user = instance.client.user
+                Notification.objects.create(
+                    user = user,
+                    message = f'Your order, {instance.order.title} has new bids',
+                    order = order
+                )
+            except Exception as e:
+                print("Error=> ", e)
+
+@receiver(post_save, sender=Order)
+def create_notification_new_order(instance, created, **kwargs):
+    if created:
+        client = User.objects.get(username=instance.client.user)
+        new_order_created(instance, client)
         
 #         try:
 #             # Create notification for freelancer when order is created
@@ -56,7 +74,6 @@ def create_profile(instance, created, **kwargs):
 def account_activation(instance, **kwargs):
     try:
         old_instance = User.objects.get(pk=instance.pk)
-        print(model_to_dict(old_instance))
         is_active_old = old_instance.is_verified
     except User.DoesNotExist:
         is_active_old = False
@@ -86,7 +103,7 @@ def order_notification_update(instance, **kwargs):
             ):
                 Notification.objects.create(
                     user = writer_receiver,
-                    message = f'Your bid has been accepted! Start working ASAP\nOrder - {instance.title}',
+                    message = f'Your bid for order, {instance.title} has been accepted! Start working ASAP',
                     order = instance
                 )
 
@@ -130,26 +147,26 @@ def order_notification_update(instance, **kwargs):
         except Exception as e:
             print("[Signal] ", e)
 
-@receiver(post_save, sender=Chat)
-def create_notification_chat(instance, **kwargs):
-    try:
-        # Create notification for new messages
-        receiver = instance.receiver
-        sender = instance.sender
+# @receiver(post_save, sender=Chat)
+# def create_notification_chat(instance, **kwargs):
+#     try:
+#         # Create notification for new messages
+#         receiver = instance.receiver
+#         sender = instance.sender
 
-        # Enable if the unread messages are more than 1        
+#         # Enable if the unread messages are more than 1        
 
-        send_message_signal(receiver, sender, instance)
+#         send_message_signal(receiver, sender, instance)
 
-        Notification.objects.create(
-            user = receiver,
-            message = f'You have unread messages from {sender}',
-            order = instance.order
-        )
+#         Notification.objects.create(
+#             user = receiver,
+#             message = f'You have unread messages from {sender}',
+#             order = instance.order
+#         )
 
-    except Exception as e:
-        print("Error => ", e)
-        pass
+#     except Exception as e:
+#         print("Error => ", e)
+#         pass
 
 @receiver(post_save, sender=Solution)
 def create_notification_solution(instance, **kwargs):
@@ -169,5 +186,4 @@ def create_notification_solution(instance, **kwargs):
 @receiver(post_save, sender=Notification)
 def notification_send_alert(instance, **kwargs):
     user = instance.user
-    print("Sending notification")
     send_alert(instance, user)

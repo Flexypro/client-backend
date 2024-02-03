@@ -177,14 +177,14 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = [
-            'rating'
+            'stars','message','created'
         ]
 
 class SolutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Solution
         fields = [
-            'solution', '_type','created'
+            'id','solution', '_type','created'
         ]  
 
 
@@ -229,14 +229,83 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = ['id','user','message', 'order_id', 'read_status', 'created_at']
         ordering = ['-created_at']
 
+class OrderViewRequestSerializer(serializers.ModelSerializer):
+    rating = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'title','rating','category','status','subcategory','milestones','page_count','created'
+        ]
+    
+    def get_rating(self, obj):
+        rating = obj.rating.stars
+        message = obj.rating.message
+        return {
+            'stars':rating,
+            'message':message
+        }
+
+    
+
+class ProfileViewRequestSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username',read_only=True)
+    orders_count = serializers.SerializerMethodField()
+    completed = serializers.SerializerMethodField()
+    in_progress = serializers.SerializerMethodField()
+    orders = OrderViewRequestSerializer(many=True,read_only=True)
+    is_verified = serializers.CharField(source='user.is_verified', read_only=True)
+    class Meta:
+        model = Profile
+        fields = [
+            'username', 
+            'first_name', 
+            'last_name', 
+            'is_verified',
+            'orders_count',
+            'in_progress',
+            'completed',
+            'orders',
+            'bio', 
+            'profile_photo'
+        ]
+    
+    def get_orders(self, profile):
+        user = profile.user
+        query = Q(client__user=user) | Q(freelancer__user=user)
+        orders = Order.objects.filter(query, Q(status='Completed') | Q(status='In Progress'))
+        return orders
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance=instance)
+        data['orders'] = OrderViewRequestSerializer(self.get_orders(instance), many=True).data
+        return data
+    
+    def get_in_progress(self,profile):
+        user = profile.user
+        query = Q(client__user=user) | Q(freelancer__user=user)
+        orders_count = Order.objects.filter(query, status='In Progress').count()
+        return orders_count
+    
+    def get_completed(self, profile):
+        user = profile.user
+        query = Q(client__user=user) | Q(freelancer__user=user)
+        orders_count = Order.objects.filter(query, status='Completed').count()
+        return orders_count
+
+        
+    def get_orders_count(self, profile):
+        user = profile.user
+        query = Q(client__user=user) | Q(freelancer__user=user)
+
+        orders_count = Order.objects.filter(query).count()
+        return orders_count
+
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
     orders_count = serializers.SerializerMethodField()
     is_verified = serializers.CharField(source='user.is_verified', read_only=True)
-
-    # notification_count = serializers.SerializerMethodField()
-    # unread_notifications = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -248,25 +317,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             'last_name', 
             'is_verified',
             'orders_count',
-            # 'notification_count', 
-            # 'unread_notifications',
             'bio', 
             'profile_photo'
         ]
-    # def get_verified_status(self, profile):
-    #     user = profile.user
-    #     is_verified = user.is_verified
-    #     return is_verified
-        
-    # def get_notification_count(self, profile):
-    #     user = profile.user        
-    #     notification_count = Notification.objects.filter(user=user).count()
-    #     return notification_count
-
-    # def get_unread_notifications(self, profile):
-    #     user = profile.user
-    #     unread_notifications = Notification.objects.filter(user=user, read_status=False).count()
-    #     return unread_notifications
 
     def get_orders_count(self, profile):
         user = profile.user

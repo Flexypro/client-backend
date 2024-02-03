@@ -21,7 +21,8 @@ from .models import (
     )
 from .serializers import (
     OrderSerializer, 
-    NotificationSerializer, 
+    NotificationSerializer,
+    ProfileViewRequestSerializer, 
     SolvedSerializer,
     ChatSerializer,
     TransactionSerializer, 
@@ -145,7 +146,7 @@ class TokenPairViewClient(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerClient
 
-    @swagger_auto_schema(tags=['Auth Token'])
+    @swagger_auto_schema(tags=['Auth'])
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
     
@@ -153,7 +154,7 @@ class TokenPairViewFreelancer(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerFreelancer
 
-    @swagger_auto_schema(tags=['Auth Token'])
+    @swagger_auto_schema(tags=['Auth'])
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
@@ -380,7 +381,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         else:
-            print(serializer.errors)
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(tags=['Order'])
@@ -418,14 +418,41 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Order'])
     def retrieve(self, request, *args, **kwargs):
         order_id = self.kwargs.get('pk')  # Assuming 'pk' is used for order ID in the URL
-        order = Order.objects.get(id=order_id)    
-        serializer = self.get_serializer(order)            
-        return Response(serializer.data)
+        try:
+
+            order = Order.objects.get(id=order_id)    
+            serializer = self.get_serializer(order)            
+            return Response(serializer.data)
+        except Order.DoesNotExist:
+            raise NotFound('Order not found')
 
     @swagger_auto_schema(tags=['Order'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
         return super().update(request, *args, **kwargs)
+    
+    @swagger_auto_schema(tags=['Order'])
+    def destroy(self, request, *args, **kwargs):    
+        order_id = self.kwargs.get('pk')
+
+        try:
+            order = self.get_object()
+
+            if order.client.user != self.request.user:
+                return Response({
+                    'error':'Action not allowed'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if order.status != 'Available':
+                return Response({
+                    'error':'You can only delete orders available'
+                }, status=status.HTTP_400_BAD_REQUEST)
+              
+            self.perform_destroy(order)
+            return Response({'success':order_id})
+        
+        except Order.DoesNotExist:
+            raise NotFound('Order not found')
         
     def get_object(self):
         order_id = self.kwargs.get('pk')
@@ -433,28 +460,19 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         try:
             obj = queryset.get(id=order_id)
-            # self.check_object_permissions(self.request, obj)
             return obj
         except:
-            raise NotFound("The order was not Found")
+            raise NotFound("The order was not found")
 
     @swagger_auto_schema(tags=['Order'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
 
-        # channel_layer = get_channel_layer()
-        # async_to_sync(channel_layer.group_send)(
-        #     "chat_lobby", {
-        #         "type":"chat.message",
-        #         "message":"Order Compeleted"
-        #     }
-        # )
         return super().update(request, *args, **kwargs)
     
     @swagger_auto_schema(tags=['Bid'])
     @action(detail=True, methods=['post'], url_path='bid')
     def place_bid(self, request, pk=None):
-        print("placing bid")
         order_id =self.kwargs.get('pk')
         order = Order.objects.filter(id=order_id, status='Available').first()
         client = order.client
@@ -474,9 +492,11 @@ class OrderViewSet(viewsets.ModelViewSet):
                 client = client,
                 amount = bid_amount
             )
-            return Response({
-                'success':'Bid placed successfully'
-            }, status=status.HTTP_201_CREATED)            
+            
+            updated_order = Order.objects.filter(id=order_id,).first()
+
+            serializer = OrderSerializer(updated_order)
+            return Response(serializer.data)            
         except Exception as e:
             print(e)
             return Response({
@@ -492,22 +512,27 @@ class OrderViewSet(viewsets.ModelViewSet):
         freelancer = Freelancer.objects.get(user=user) 
 
         try:            
-            bid_amount = float(request.data['amount'])
+            amt = float(request.data['amount'])
 
-            if bid_amount < order.amount:
+            if amt < order.amount:
                 return Response({
                     'error':'Bid amount should be higher than order amount'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             q = Q(freelancer=freelancer) | Q(order=order)
 
-            bid = Bid.objects.filter(q).first()
-            bid.amount = bid_amount
-            bid.save()
-            return Response({
-                'success':'Bid updated successfully'
-            }, status=status.HTTP_200_OK)
-                    
+            try:
+                bid = Bid.objects.filter(q).first()
+                bid.amount = amt
+                bid.save() 
+                _bid = Bid.objects.filter(q).first()
+                serializer = BidSerializer(bid)
+
+                return Response(serializer.data)
+            
+            except Bid.DoesNotExist:
+                raise NotFound('Bid does not exist')
+                  
         except Exception as e:
             print(e)
             return Response({
@@ -524,11 +549,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         try:      
             q = Q(freelancer=freelancer) | Q(order=order)
-            bid = Bid.objects.filter(q).first()
-            bid.delete()
-            return Response({
-                'success':f'Bid deleted {bid.id}'
-            }, status=status.HTTP_204_NO_CONTENT)
+            try:
+                bid = Bid.objects.filter(q).first()
+                bid.delete()
+                updated_order = Order.objects.filter(id=order_id,).first()
+
+                serializer = OrderSerializer(updated_order)
+                return Response(serializer.data)    
+            except:
+                raise NotFound('Bid not found')        
                     
         except Exception as e:
             print(e)
@@ -543,6 +572,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         solution = Solution.objects.filter(order=order)
         serializer = SolutionSerializer(solution, many=True)
         return Response(serializer.data)
+    
+    @swagger_auto_schema(tags=['Order Solution'])
+    @get_solution.mapping.delete
+    def delete_solution(self, request, pk=None):
+        solution_id = self.request.GET.get('solution-id')
+        order = self.get_object()
+        if (order.status == 'Completed'):
+            return Response({
+                'error':'Not allowed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            solution = Solution.objects.get(id=solution_id)
+            solution.delete()
+            return Response({
+                'success':solution_id
+            }, status=status.HTTP_200_OK)
+        except Solution.DoesNotExist:
+            raise NotFound('Solution not found')
+
     
     # @action(detail=True, methods=['post'], url_path='create-solution')
     @swagger_auto_schema(tags=['Order Solution'])
@@ -561,16 +609,21 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Chat'])
     @action(detail=True, methods=['get'], url_path='chats')
     def order_chats(self, request, pk=None):
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.filter(id=order_id,).first()
+        if order.status != 'Available':
+            order = self.get_object()
         chats = Chat.objects.filter(order=order)
         serializer = ChatSerializer(chats, many=True)
         return Response(serializer.data)
     
-    # @action(detail=True, methods=['post'], url_path='create-chat')
     @swagger_auto_schema(tags=['Chat'])
     @order_chats.mapping.post
     def create_chat(self, request, pk=None):
-        order = self.get_object()
+        order_id =self.kwargs.get('pk')
+        order = Order.objects.filter(id=order_id,).first()
+        if order.status != 'Available':
+            order = self.get_object()
         sender = request.user
         receiver_username = request.data['receiver']
         receiver = User.objects.get(username=receiver_username)
@@ -640,9 +693,29 @@ class ProfileViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True
         return super().update(request, *args, **kwargs)
     
+    def get_serializer_class(self):
+        user_params = self.request.GET.get('user')
+
+        if user_params:
+            return ProfileViewRequestSerializer
+        else:
+            return ProfileSerializer
+        
+    
     def get_queryset(self):
         current_user = self.request.user
-        return self.queryset.filter(user=current_user)
+        user_params = self.request.GET.get('user')
+        if user_params:            
+            try: 
+                user = User.objects.get(username=user_params)                                              
+                return self.queryset.filter(user=user)          
+            except user.DoesNotExist:
+                raise NotFound("Profile not found")
+                
+        else:
+            return self.queryset.filter(user=current_user)
+    
+    
 
 # class BidViewSet(viewsets.ModelViewSet):
 #     permission_classes = [IsAuthenticated]
@@ -719,44 +792,43 @@ class TransactionViewSet(viewsets.ModelViewSet):
         q = Q(_from = user) | Q(_to = user)
         return self.queryset.filter(q).order_by('-timestamp')
 
-def new_order_created(order_instance, client, freelancer):
-    pass
-    # serialized_data = OrderSerializer(order_instance).data
-    # response_data = {
-    #     "order":serialized_data
-    # }
+def new_order_created(order_instance, client,):    
+    serialized_data = OrderSerializer(order_instance).data
+    response_data = {
+        "order":serialized_data
+    }
 
-    # channel_layer = get_channel_layer()
-    # client_room_id = client.id
-    # freelancer_room_id = freelancer.id
+    channel_layer = get_channel_layer()
+    client_room_id = client.id
+    freelancer_room_id = 'freelancer'
     
-    # async def send_order():
+    async def send_order():
 
-    #     freelancer_room = f'order_{freelancer_room_id}' 
-    #     client_room = f'order_{client_room_id}'  
+        freelancer_room = f'order_{freelancer_room_id}' 
+        client_room = f'order_{client_room_id}'  
 
-    #     try:
-    #     # Sending order to freelancer
-    #         await channel_layer.group_send(
-    #             freelancer_room, {
-    #                 'type':'new.order',
-    #                 'message':response_data
-    #             }
-    #         )
+        try:
+            # Sending order to freelancer
+            await channel_layer.group_send(
+                freelancer_room, {
+                    'type':'new.order',
+                    'message':response_data
+                }
+            )
 
-    #         # Sending order to client (owner)
-    #         await channel_layer.group_send(
-    #             client_room, {
-    #                 'type':'new.order',
-    #                 'message':response_data
-    #             }
-    #         )
-    #     except Exception as e:
-    #         print("Error => ", e)
+            # Sending order to client (owner)
+            await channel_layer.group_send(
+                client_room, {
+                    'type':'new.order',
+                    'message':response_data
+                }
+            )
+        except Exception as e:
+            print("Error => ", e)
 
 
-    # async_to_sync(send_order)()
-    # return Response(response_data) 
+    async_to_sync(send_order)()
+    return Response(response_data) 
 
 def send_message_signal(receiver, sender, instance):
 
