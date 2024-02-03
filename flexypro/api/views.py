@@ -146,7 +146,7 @@ class TokenPairViewClient(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerClient
 
-    @swagger_auto_schema(tags=['Auth Token'])
+    @swagger_auto_schema(tags=['Auth'])
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
     
@@ -154,7 +154,7 @@ class TokenPairViewFreelancer(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = ObtainTokenSerializerFreelancer
 
-    @swagger_auto_schema(tags=['Auth Token'])
+    @swagger_auto_schema(tags=['Auth'])
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
@@ -366,7 +366,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'update', 'put', 'delete']
+    http_method_names = ['get', 'post', 'update', 'put', 'delete']    
 
     @swagger_auto_schema(tags=['Order'])
     def list(self, request, *args, **kwargs):
@@ -418,14 +418,41 @@ class OrderViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Order'])
     def retrieve(self, request, *args, **kwargs):
         order_id = self.kwargs.get('pk')  # Assuming 'pk' is used for order ID in the URL
-        order = Order.objects.get(id=order_id)    
-        serializer = self.get_serializer(order)            
-        return Response(serializer.data)
+        try:
+
+            order = Order.objects.get(id=order_id)    
+            serializer = self.get_serializer(order)            
+            return Response(serializer.data)
+        except Order.DoesNotExist:
+            raise NotFound('Order not found')
 
     @swagger_auto_schema(tags=['Order'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
         return super().update(request, *args, **kwargs)
+    
+    @swagger_auto_schema(tags=['Order'])
+    def destroy(self, request, *args, **kwargs):    
+        order_id = self.kwargs.get('pk')
+
+        try:
+            order = self.get_object()
+
+            if order.client.user != self.request.user:
+                return Response({
+                    'error':'Action not allowed'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if order.status != 'Available':
+                return Response({
+                    'error':'You can only delete orders available'
+                }, status=status.HTTP_400_BAD_REQUEST)
+              
+            self.perform_destroy(order)
+            return Response({'success':order_id})
+        
+        except Order.DoesNotExist:
+            raise NotFound('Order not found')
         
     def get_object(self):
         order_id = self.kwargs.get('pk')
@@ -433,22 +460,14 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         try:
             obj = queryset.get(id=order_id)
-            # self.check_object_permissions(self.request, obj)
             return obj
         except:
-            raise NotFound("The order was not Found")
+            raise NotFound("The order was not found")
 
     @swagger_auto_schema(tags=['Order'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
 
-        # channel_layer = get_channel_layer()
-        # async_to_sync(channel_layer.group_send)(
-        #     "chat_lobby", {
-        #         "type":"chat.message",
-        #         "message":"Order Compeleted"
-        #     }
-        # )
         return super().update(request, *args, **kwargs)
     
     @swagger_auto_schema(tags=['Bid'])
@@ -502,13 +521,18 @@ class OrderViewSet(viewsets.ModelViewSet):
             
             q = Q(freelancer=freelancer) | Q(order=order)
 
-            bid = Bid.objects.filter(q).first()
-            bid.amount = amt
-            bid.save() 
-            _bid = Bid.objects.filter(q).first()
-            serializer = BidSerializer(bid)
+            try:
+                bid = Bid.objects.filter(q).first()
+                bid.amount = amt
+                bid.save() 
+                _bid = Bid.objects.filter(q).first()
+                serializer = BidSerializer(bid)
 
-            return Response(serializer.data)          
+                return Response(serializer.data)
+            
+            except Bid.DoesNotExist:
+                raise NotFound('Bid does not exist')
+                  
         except Exception as e:
             print(e)
             return Response({
@@ -525,12 +549,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         try:      
             q = Q(freelancer=freelancer) | Q(order=order)
-            bid = Bid.objects.filter(q).first()
-            bid.delete()
-            updated_order = Order.objects.filter(id=order_id,).first()
+            try:
+                bid = Bid.objects.filter(q).first()
+                bid.delete()
+                updated_order = Order.objects.filter(id=order_id,).first()
 
-            serializer = OrderSerializer(updated_order)
-            return Response(serializer.data)            
+                serializer = OrderSerializer(updated_order)
+                return Response(serializer.data)    
+            except:
+                raise NotFound('Bid not found')        
                     
         except Exception as e:
             print(e)

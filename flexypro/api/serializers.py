@@ -177,7 +177,7 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = [
-            'rating'
+            'stars','message','created'
         ]
 
 class SolutionSerializer(serializers.ModelSerializer):
@@ -230,12 +230,23 @@ class NotificationSerializer(serializers.ModelSerializer):
         ordering = ['-created_at']
 
 class OrderViewRequestSerializer(serializers.ModelSerializer):
+    rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             'title','rating','category','status','subcategory','milestones','page_count','created'
         ]
+    
+    def get_rating(self, obj):
+        rating = obj.rating.stars
+        message = obj.rating.message
+        return {
+            'stars':rating,
+            'message':message
+        }
+
+    
 
 class ProfileViewRequestSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)

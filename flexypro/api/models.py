@@ -155,13 +155,13 @@ class Solution(models.Model):
 class Rating(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.OneToOneField(Order, on_delete=models.CASCADE)
-    rating = models.FloatField(blank=True,null=True)
+    stars = models.FloatField(blank=True,null=True)
     message = models.CharField(max_length=150, blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True, null=True)
 
 
     def __str__(self) -> str:
-        return str(self.rating) + str(self.order)
+        return str(self.stars) +'-'+ str(self.order)
 
 class Chat(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
