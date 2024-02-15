@@ -695,6 +695,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     
     def get_serializer_class(self):
         user_params = self.request.GET.get('user')
+        
 
         if user_params:
             return ProfileViewRequestSerializer
@@ -705,6 +706,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         current_user = self.request.user
         user_params = self.request.GET.get('user')
+                
         if user_params:            
             try: 
                 user = User.objects.get(username=user_params)                                              

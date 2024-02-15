@@ -239,12 +239,17 @@ class OrderViewRequestSerializer(serializers.ModelSerializer):
         ]
     
     def get_rating(self, obj):
-        rating = obj.rating.stars
-        message = obj.rating.message
-        return {
-            'stars':rating,
-            'message':message
-        }
+        
+        try:
+            rating = obj.rating.stars
+            message = obj.rating.message
+            return {
+                'stars':rating,
+                'message':message
+            }
+        except Exception as e: 
+            print(e)
+            return None
 
     
 
@@ -255,6 +260,8 @@ class ProfileViewRequestSerializer(serializers.ModelSerializer):
     in_progress = serializers.SerializerMethodField()
     orders = OrderViewRequestSerializer(many=True,read_only=True)
     is_verified = serializers.CharField(source='user.is_verified', read_only=True)
+    address = serializers.SerializerMethodField()
+    
     class Meta:
         model = Profile
         fields = [
@@ -267,7 +274,8 @@ class ProfileViewRequestSerializer(serializers.ModelSerializer):
             'completed',
             'orders',
             'bio', 
-            'profile_photo'
+            'profile_photo',
+            'address'
         ]
     
     def get_orders(self, profile):
@@ -300,12 +308,19 @@ class ProfileViewRequestSerializer(serializers.ModelSerializer):
 
         orders_count = Order.objects.filter(query).count()
         return orders_count
+    
+    def get_address(self, obj):
+        address = Util.get_location(user=False)
+        return address
+    
 
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
     orders_count = serializers.SerializerMethodField()
     is_verified = serializers.CharField(source='user.is_verified', read_only=True)
+    address = serializers.SerializerMethodField()  # New field for address
+    
 
     class Meta:
         model = Profile
@@ -318,8 +333,19 @@ class ProfileSerializer(serializers.ModelSerializer):
             'is_verified',
             'orders_count',
             'bio', 
-            'profile_photo'
+            'profile_photo',
+            'address'
         ]
+        
+    def get_address(self, obj):
+        address = Util.get_location(user=True)
+        return address
+    
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     address_data = self.get_address(instance)
+    #     representation['address'] = address_data
+    #     return representation
 
     def get_orders_count(self, profile):
         user = profile.user

@@ -10,6 +10,38 @@ import requests
 class Util:
 
     # topt = pyotp.TOTP(settings.OTP_KEY)
+    @staticmethod
+    def get_location(user=False):
+        res = requests.get("http://ip-api.com/json/?fields=61439")
+        
+        try:
+            if res.status_code == 200:
+                data = res.json()
+                country = data['country']
+                countryCode = data['countryCode']
+                timezone = data['timezone']
+                ip = data['query']
+                
+                if user:                
+                    return {
+                        'countryCode':countryCode,
+                        'country':country,
+                        'timezone':timezone,
+                        'ip':ip
+                    }
+                else:
+                    return {
+                        'countryCode':countryCode,
+                        'country':country,
+                        'timezone':timezone,
+                    }
+                
+            else:
+                print("Request failed")
+                return {}
+        except Exception as e:
+            print(f'Error obtaining IP, {e}')
+            return {}
 
     @staticmethod
     def send_email(data, ):
@@ -92,6 +124,3 @@ def capture_payment(id, access_token):
     currency_code = response['purchase_units'][0]['payments']['captures'][0]['amount']['currency_code']
 
     return paypal_id, amount_value, paypal_fee_value, net_amount_value, currency_code, status_value
-
-    
-    
