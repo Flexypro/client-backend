@@ -397,18 +397,33 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         if status or bidding:
             if status == 'available':
-                if Client.objects.filter(user=user).exists():
-                    return Order.objects.filter(client__user=user, status='Available').order_by('-updated')
-                elif Freelancer.objects.filter(user=user).exists():
-                    return Order.objects.filter(status='Available').order_by('-updated').exclude(bid_set__freelancer__user=user)
-            elif status == 'in_progress':                
-                return Order.objects.filter(query, Q(status='In Progress')).order_by('-updated')
+                try:
+                    if Client.objects.filter(user=user).exists():
+                        return Order.objects.filter(client__user=user, status='Available').order_by('-updated')
+                    elif Freelancer.objects.filter(user=user).exists():
+                        return Order.objects.filter(status='Available').order_by('-updated').exclude(bid_set__freelancer__user=user)
+                except:
+                    raise NotFound('No available orders')
+                
+            elif status == 'in_progress':    
+                try:            
+                    return Order.objects.filter(query, Q(status='In Progress')).order_by('-updated')
+                except:
+                    raise NotFound('No orders in progress')
+                
             elif status == 'completed':
-                return Order.objects.filter(query, Q(status='Completed')).order_by('-updated')
-
+                try:
+                    return Order.objects.filter(query, Q(status='Completed')).order_by('-updated')
+                except:
+                    raise NotFound('No completed orders found')
+                
             elif bidding =='true':
-                freelancer = Freelancer.objects.get(user=user)
-                return Order.objects.filter(bid_set__freelancer__user=user)
+                try:
+                    Freelancer.objects.get(user=user)
+                    return Order.objects.filter(bid_set__freelancer__user=user)
+                except:
+                    raise NotFound('No orders in bidding stage')
+                    
             else:
                 # Handle invalid status parameter
                 raise Http404("Invalid status parameter")
