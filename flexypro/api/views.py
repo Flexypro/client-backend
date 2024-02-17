@@ -59,8 +59,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
-
-import requests
+from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination
 from . import utils
 from drf_yasg.utils import swagger_auto_schema
 
@@ -367,7 +366,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post', 'update', 'put', 'delete']    
-
+    pagination_class = OrdersPagination
+    
     @swagger_auto_schema(tags=['Order'])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
@@ -761,10 +761,24 @@ class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get','put']
+    pagination_class = NotificationsPagination
     
     @swagger_auto_schema(tags=['Notification'])
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        self.request.GET.get('status', None)
+        params = self.request.GET.get('status')
+        
+        if params == 'unread_count':
+            unread_count = self.get_unread_count(request.user)
+            return Response({
+                'unread_count': unread_count
+            })
+        
+        user = request.user
+        unread_count = Notification.objects.filter(user=user, read_status=False).count()
+        response = super().list(request, *args, **kwargs)
+        response.data['unread_count'] = unread_count
+        return response
 
     @swagger_auto_schema(tags=['Notification'])
     def retrieve(self, request, *args, **kwargs):
@@ -786,11 +800,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
         user = self.request.user        
         return self.queryset.filter(user=user).order_by('-created_at')
 
+    def get_unread_count(self, user):
+        return Notification.objects.filter(user=user, read_status=False).count()
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get']
+    pagination_class = TransactionsPagination
 
     @swagger_auto_schema(tags=['Transactions'])
     def list(self, request, *args, **kwargs):
