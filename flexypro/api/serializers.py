@@ -164,14 +164,30 @@ class ClientSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Client
-        exclude = ['id']
+        fields = ['user']
 
 class FreelancerSerializer(serializers.ModelSerializer):
     user = UserSerializer(serializers.ModelSerializer)
     
     class Meta:
         model = Freelancer
-        exclude = ['id']
+        fields = ['user']
+
+class ClientSettingsSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Client
+        exclude = [
+            'id','user'
+        ]
+        
+class FreelancerSettingsSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Freelancer
+        exclude = [
+            'id','user'
+        ]
 
 class RatingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -251,8 +267,6 @@ class OrderViewRequestSerializer(serializers.ModelSerializer):
             print(e)
             return None
 
-    
-
 class ProfileViewRequestSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username',read_only=True)
     orders_count = serializers.SerializerMethodField()
@@ -320,7 +334,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     orders_count = serializers.SerializerMethodField()
     is_verified = serializers.CharField(source='user.is_verified', read_only=True)
     address = serializers.SerializerMethodField()  # New field for address
-    
+    settings = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -334,8 +348,25 @@ class ProfileSerializer(serializers.ModelSerializer):
             'orders_count',
             'bio', 
             'profile_photo',
-            'address'
+            'address',
+            'settings'
         ]
+    def get_settings(self, obj):
+        user = obj.user
+        
+        try:
+            if Client.objects.filter(user=user).exists():
+                client_instance = Client.objects.get(user=user)
+                settings_serializer = ClientSettingsSerializer(client_instance)
+
+            elif Freelancer.objects.filter(user=user).exists:
+                freelancer_instance = Freelancer.objects.get(user=user)
+                settings_serializer = FreelancerSettingsSerializer(freelancer_instance)
+            
+            return settings_serializer.data
+        except Exception as e:
+            print("Error ", e)
+            pass
         
     def get_address(self, obj):
         address = Util.get_location(user=True)

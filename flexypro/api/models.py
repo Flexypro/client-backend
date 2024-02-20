@@ -61,7 +61,20 @@ class OTP(models.Model):
         return f'{self.otp}' + f' {str(self.user)}'
     
 class Client(models.Model):
+    payment_choices = (
+        ('Paypal', 'Paypal'),
+        ('Stripe', 'Stripe'),
+    )
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    email_uploaded_work = models.BooleanField(default=True)
+    email_new_messages = models.BooleanField(default=False)
+    email_deadline = models.BooleanField(default=True)
+    
+    app_uploaded_work = models.BooleanField(default=True)
+    app_new_messages = models.BooleanField(default=True)
+    app_deadline = models.BooleanField(default=True)
+    
+    payment_option = models.CharField(max_length=20, choices=payment_choices, null=True, blank=True)
 
     def __str__(self) -> str:
         return (str(self.user))
@@ -69,17 +82,27 @@ class Client(models.Model):
 class Freelancer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
+    email_uploaded_work = models.BooleanField(default=True)
+    email_new_messages = models.BooleanField(default=True)
+    email_deadline = models.BooleanField(default=True)
+    
+    app_uploaded_work = models.BooleanField(default=True)
+    app_new_messages = models.BooleanField(default=True)
+    app_deadline = models.BooleanField(default=True)
+    
     def __str__(self) -> str:
         return (str(self.user))
 
 class Profile(models.Model):
+    
     user = models.OneToOneField(User,on_delete=models.CASCADE)
     first_name = models.CharField(max_length=40, null=True, blank=True)
     last_name = models.CharField(max_length=40, null=True, blank=True)
     email = models.EmailField(blank=True, null=True)  
     bio = models.TextField(max_length=240, blank=True, null=True)      
     profile_photo = models.FileField(upload_to='files/profile-photo', blank=True, null=True)
-
+    
+    
     def __str__(self) -> str:
         return str(self.user)
 

@@ -4,7 +4,7 @@ class OrdersPagination(PageNumberPagination):
     page_size = 1
 
 class NotificationsPagination(PageNumberPagination):
-    page_size = 2
+    page_size = 1
     
 class TransactionsPagination(PageNumberPagination):
     page_size = 1

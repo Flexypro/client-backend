@@ -821,7 +821,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.is_staff:    
-            return self.queryset.filter(to=user)  
+            return self.queryset.filter(_to=user)  
 
         q = Q(_from = user) | Q(_to = user)
         return self.queryset.filter(q).order_by('-timestamp')
