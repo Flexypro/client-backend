@@ -34,7 +34,9 @@ from .serializers import (
     ResetPasswordSerializer,
     setNewPasswordSerializer,
     OTPSerializer,
-    BidSerializer
+    BidSerializer,
+    FreelancerSettingsSerializer,
+    ClientSettingsSerializer,
     
 )
 
@@ -706,6 +708,29 @@ class ProfileViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Profile'])
     def update(self, request, *args, **kwargs):
         kwargs['partial'] = True
+        instance = self.get_object()
+
+        if request.data.get('settings', {}):
+            user = instance.user
+            try:
+                if Freelancer.objects.filter(user=user).exists():
+                    freelancer_instance = Freelancer.objects.get(user=user)
+                    freelancer_serializer = FreelancerSettingsSerializer(
+                        freelancer_instance, data=request.data.get('settings', {}), partial=True
+                    )
+                    freelancer_serializer.is_valid(raise_exception=True)
+                    freelancer_serializer.save()
+                elif Client.objects.filter(user=user).exists():
+                    client_instance = Client.objects.get(user=user)
+                    client_serializer = ClientSettingsSerializer(
+                        client_instance, data=request.data.get('settings', {}), partial=True
+                    ) 
+                    client_serializer.is_valid(raise_exception=True)
+                    client_serializer.save()
+                    
+            except User.DoesNotExist:
+                raise NotFound("User not found!")
+
         return super().update(request, *args, **kwargs)
     
     def get_serializer_class(self):
