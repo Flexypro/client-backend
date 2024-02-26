@@ -1,6 +1,7 @@
 from base64 import urlsafe_b64encode
 from email import utils
 import json
+from urllib.parse import parse_qs, urlparse
 from django.http import Http404
 from django.shortcuts import redirect, render
 import pyotp
@@ -64,6 +65,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination
 from . import utils
 from drf_yasg.utils import swagger_auto_schema
+import stripe
 
 # from django_otp.exceptions import OTPVerificationError
 
@@ -204,7 +206,6 @@ class RegisterView(generics.CreateAPIView):
         return Response(user_data, status=status.HTTP_201_CREATED)
     
 class CreateCheckoutOrderView(generics.GenericAPIView):
-
     @swagger_auto_schema(tags=['Paypal payment'])
     def post(self, request):  
         try:   
@@ -235,24 +236,22 @@ class CapturePaymentView(generics.GenericAPIView):
             access_token = utils.get_token()
             paypal_id, amount_value, paypal_fee_value, net_amount_value, currency_code, status_value = utils.capture_payment(paypalId, access_token)
 
-            # Create transaction
-            Transaction.objects.create(
-                paypal_id = paypal_id,
-                order = order,
-                status = status_value,
-                amount_value = amount_value,
-                paypal_fee_value = paypal_fee_value,
-                net_amount_value = net_amount_value,
-                currency_code = currency_code,
-                channel = 'Paypal',  
-                _from  = order.client.user,
-                _to = order.freelancer.user       
-            )
-
-            # Modify order to paid true
+            # Modify order to paid true, and create transaction table data
             if not order.paid:
                 order.paid = True
                 order.save()
+                Transaction.objects.create(
+                    transaction_id = paypal_id,
+                    order = order,
+                    status = status_value,
+                    amount_value = amount_value,
+                    paypal_fee_value = paypal_fee_value,
+                    net_amount_value = net_amount_value,
+                    currency_code = currency_code,
+                    channel = 'Paypal',  
+                    _from  = order.client.user,
+                    _to = order.freelancer.user       
+                )
 
             return Response({
                 'success':'Purchase complete'
@@ -263,6 +262,128 @@ class CapturePaymentView(generics.GenericAPIView):
             return Response({
                 'error':'Error occured during transaction'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class StripeCheckoutView(generics.GenericAPIView):
+    def post(self, request):
+        stripe.api_key = settings.STRIPE_API_KEY
+        order_id = request.data.get('order_id',)
+        order = Order.objects.filter(id=order_id)
+        try:
+            amount = self.convert_to_cents(order.first().amount)
+            quantity = order.count()
+            try:
+                checkout_session = stripe.checkout.Session.create(
+                    ui_mode = 'embedded',
+                    line_items = [
+                        {
+                            'price_data':{
+                                'currency':'usd',
+                                'unit_amount':amount,
+                                'product_data':{
+                                    'name':str(order_id)
+                                }                                
+                            },
+                            'quantity':quantity
+                        }
+                    ],
+                    
+                    mode = 'payment',
+                    return_url = settings.REDIRECT_DOMAIN + f'/payment/?session_id={{CHECKOUT_SESSION_ID}}&order_id={order_id}',
+                    # success_url = settings.REDIRECT_DOMAIN + '/payment_success/?session_id={CHECKOUT_SESSION_ID}',
+                    # cancel_url = settings.REDIRECT_DOMAIN + '/payment_cancelled',
+                )
+                
+                return Response({
+                    'client_secret':checkout_session.client_secret
+                }, status=status.HTTP_200_OK)
+            except  Exception as e:
+                print(e)
+                return Response({
+                    'error':str(e)
+                }, status=status.HTTP_400_BAD_REQUEST)
+        except Order.DoesNotExist:
+            raise NotFound('We could not find the order')
+        except Exception as e:
+            print(e)
+            return Response({
+                'error': str(e)
+            })
+            
+    def convert_to_cents(self, amount):
+        return int(amount*100)
+
+class CaptureStripeStatusView(generics.GenericAPIView):
+    def get(self, request):
+        session_id = self.request.GET.get('session_id')
+        order_id = self.request.GET.get('order_id')
+        stripe.api_key = settings.STRIPE_API_KEY
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session.status == "complete":
+            pass
+            # save to db
+            # Transaction.objects.create(
+                
+            # )
+
+        return Response({
+            'status': session.status,
+            'email':session.customer_details.email,
+            'session_id':session_id,
+            'amount':session.amount_total/100,
+            'time':session.created,           
+        })
+
+class StripeWebHookView(generics.GenericAPIView):
+    def post(self, request):
+        stripe.api_key = settings.STRIPE_API_KEY
+        payload = request.body
+        signature_header = self.request.META['HTTP_STRIPE_SIGNATURE']
+        event = None
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, signature_header, settings.STRIPE_CHECKOUT_WEBHOOK
+            )
+        except Exception as e:
+            print(e)
+            return Response({
+                'error':'Failed to create webhook'
+            }, status=status.HTTP_400_BAD_REQUEST)     
+            
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            amount = session.get('amount_total', None)
+            transaction_id = session.get('id', None)
+            return_url = urlparse(session.get('return_url'))
+            query_params = parse_qs(return_url.query)
+            print(query_params)
+            order_id = query_params.get('order_id', [None])[0]
+            currency = session.get('currency','')
+            status = session.get('status','')
+
+            order = Order.objects.get(id=order_id)
+            if not order.paid:
+                order.paid = True
+                order.save()
+                try:
+                    Transaction.objects.create(
+                        transaction_id = transaction_id,
+                        order = order,
+                        _from = order.client.user,
+                        _to = order.freelancer.user,
+                        amount_value = self.convert_to_unit(amount),
+                        net_amount_value = self.convert_to_unit(amount),
+                        currency_code = currency.upper(),
+                        channel = 'Stripe',
+                        status = status.upper(),               
+                    )
+                except Exception as e:
+                    print(e)
+                    
+        return Response({
+                'details':'Transaction completed'
+            })  
+    def convert_to_unit(self, amt):
+        return amt/100
 
 class ResendOTPView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]

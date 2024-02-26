@@ -134,7 +134,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=status_choices, default='Available')
     attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
     amount = models.FloatField()
-    paid = models.BooleanField(blank=True, null=True, default=False)
+    paid = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True, blank=True)
 
@@ -200,14 +200,15 @@ class Chat(models.Model):
 class Transaction(models.Model):
     channel_choices = [
         ('Paypal','Paypal'),
+        ('Stripe','Stripe')
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    paypal_id = models.CharField(blank=True, null=True, max_length=20)
+    transaction_id = models.CharField(blank=True, null=True, max_length=20)
     order = models.ForeignKey(Order, related_name='order_completed', on_delete=models.CASCADE, null=True, blank=True)    
     _from = models.ForeignKey(User,blank=True, related_name='_from', null=True, on_delete=models.CASCADE)
     _to = models.ForeignKey(User, related_name='to', blank=True, null=True, on_delete=models.CASCADE)
     amount_value = models.FloatField()   
-    paypal_fee_value = models.FloatField(blank=True, null=True) 
+    paypal_fee_value = models.FloatField(default=0) 
     net_amount_value = models.FloatField(blank=True, null=True) 
     currency_code = models.CharField(max_length=5, default='USD')
     channel = models.CharField(max_length=20, choices=channel_choices, default='Paypal')
@@ -215,7 +216,7 @@ class Transaction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return str(self.order) +'-'+ str(self.paypal_id)
+        return str(self.order) +'-'+ str(self.transaction_id)
     
     
 class Notification(models.Model):

@@ -36,9 +36,11 @@ requests==2.31.0
 service-identity==23.1.0
 six==1.16.0
 sqlparse==0.4.4
+stripe==8.4.0
 Twisted==23.10.0
 txaio==23.1.1
 typing_extensions==4.8.0
+uritemplate==4.1.1
 urllib3==2.1.0
 uuid==1.30
 zope.interface==6.1
