@@ -97,8 +97,35 @@ class ResetPasswordView(generics.GenericAPIView):
                 }
             )
             abs_url = f'http://{current_site+relative_link}'
-            email_body = f'Hi {user.username}\nReset your account password with below\n{abs_url}'
 
+            email_body = f"""
+                <html>
+                <body style="max-width: 768px; margin: 0 auto; background-color: #fff; border-radius: 10px; font-family: sans-serif; justify-content: flex-start; color: #fff; line-height: 1.8;">
+                    <div class="email" style="background-color: #374151; height: fit-content; width: 100%;">
+                    <h1 class="top" style="background-color: #404c5e; padding: 2rem; margin: 0;">Password Reset Email</h1>
+                    <section style="padding: 2rem; word-wrap: break-word;">
+                        <h1>Hi {user.username},</h1>
+                        <article>
+                        You are receiving this email because you requested a password reset for your <a href="https://clients.gigitise.com" style="text-decoration: none; color: #15c;">Gigitse platform</a> account.
+                        </article>
+                        <br />
+                        <article>Use the link below to reset your password,</article>
+                        <article>
+                        <a href={abs_url} style="text-decoration: none; color: #15c;">{abs_url}</a>
+                        </article>
+                        <br />
+                        <article>
+                        If you did not request password reset for your account, kindly disregard this email. We recommend you review your activity on <a href="https://clients.gigitise.com" style="text-decoration: none; color: #15c;">Gigitse platform</a> to ensure security.
+                        </article>
+                    </section>
+                    <footer style="padding: 1rem 2rem; background-color: #404c5e;">
+                        <article>Warm Regards,</article>
+                        <article>Gigitise Team.</article>
+                    </footer>
+                    </div>
+                </body>
+                </html>
+            """
             data = {
                 'email_body':email_body,
                 'email_subject':'Password Reset',
@@ -193,8 +220,35 @@ class RegisterView(generics.CreateAPIView):
         # current_site = get_current_site(request).domain
         # relative_link = reverse('verify-email')
         # abs_url = f'http://{current_site+relative_link+"?token="+str(token)}'
-        email_body = f'Hi {user.username} \nYour OTP is {otp}'
-
+        # email_body = f'Hi {user.username} \nYour OTP is {otp}'
+        email_body = f"""
+            <html>
+                <html>
+                <body style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 10px; font-family: sans-serif; color: #fff; line-height: 1.8;">
+                    <div class="email" style="background-color: #374151; height: fit-content;">
+                    <div class="top" style="background-color: #404c5e; padding: 2rem;">
+                        <h1 style="margin: 0;">Gigitise Email Verification</h1>
+                    </div>
+                    <section style="padding: 2rem; color: #fff; word-wrap: break-word;">
+                        <h1 style="margin: 0; color: #fff;">Hi {user.username},</h1>
+                        <article style="color: #fff;" class="intro-p">
+                        Welcome to Gigitise! We are thrilled to have you onboard our platform and excited for the journey ahead. As you embark on this digital adventure with us, we want to ensure a seamless and secure experience every step of the way.
+                        </article>
+                        <h1 class="otp" style="display: flex; align-items: center; gap: 1rem;"><strong style="font-size: 32px; color: #fff;;">Your OTP is {otp}</strong></h1>
+                        <article>
+                        This OTP will be valid for a single use and ensures that your account remains protected. Please keep it confidential and do not share it with anyone.
+                        </article>
+                    </section>
+                    <footer style="padding: 1rem 2rem; background-color: #404c5e;">
+                        <div>
+                        Best regards,<br />
+                        Gigitise Team.
+                        </div>
+                    </footer>
+                    </div>
+                </body>
+            </html>
+            """
         data = {
             'email_body':email_body,
             'email_subject':'Email Verification',
@@ -404,7 +458,35 @@ class ResendOTPView(generics.GenericAPIView):
                     user = user
                 )
 
-                email_body = f'Hi {user.username} \nYour OTP is {otp}'
+                # email_body = f'Hi {user.username} \nYour OTP is {otp}'
+                email_body = f"""
+                    <html>
+                        <html>
+                        <body style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 10px; font-family: sans-serif; color: #fff; line-height: 1.8;">
+                            <div class="email" style="background-color: #374151; height: fit-content;">
+                            <div class="top" style="background-color: #404c5e; padding: 2rem;">
+                                <h1 style="margin: 0;">Gigitise Email Verification</h1>
+                            </div>
+                            <section style="padding: 2rem; color: #fff; word-wrap: break-word;">
+                                <h1 style="margin: 0; color: #fff;">Hi {user.username}</h1>
+                                <article style="color: #fff;" class="intro-p">
+                                Welcome to Gigitise! We are thrilled to have you onboard our platform and excited for the journey ahead. As you embark on this digital adventure with us, we want to ensure a seamless and secure experience every step of the way.
+                                </article>
+                                <h1 class="otp" style="display: flex; align-items: center; gap: 1rem;"><strong style="font-size: 46px; color: #fff;;">Your OTP is {otp}</strong></h1>
+                                <article>
+                                This OTP will be valid for a single use and ensures that your account remains protected. Please keep it confidential and do not share it with anyone.
+                                </article>
+                            </section>
+                            <footer style="padding: 1rem 2rem; background-color: #404c5e;">
+                                <div>
+                                Best regards,<br />
+                                Gigitise Team.
+                                </div>
+                            </footer>
+                            </div>
+                        </body>
+                    </html>
+                    """
 
                 data = {
                     'email_body':email_body,
@@ -504,6 +586,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         else:
+            print(serializer.errors)
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(tags=['Order'])

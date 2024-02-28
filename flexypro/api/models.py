@@ -129,7 +129,7 @@ class Order(models.Model):
         ('Completed','Completed')
     ]
     subcategory = models.CharField(max_length=40, blank=True, null=True)
-    milestones = models.IntegerField(blank=True, null=True)
+    milestones = models.IntegerField(blank=True, null=True, default=1)
     page_count = models.IntegerField(blank=True, null=True)     
     status = models.CharField(max_length=20, choices=status_choices, default='Available')
     attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)

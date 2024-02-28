@@ -1,15 +1,22 @@
 import json
 import time
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, EmailMultiAlternatives
+
 import pyotp
 from rest_framework.response import Response
 from rest_framework import status
 import requests
+import os
 
 class Util:
 
-    # topt = pyotp.TOTP(settings.OTP_KEY)
+    def read_template(filename):
+        template_dir = os.path.join(os.path.dirname(__file__), 'email_templates')
+        template_path = os.path.join(template_dir, filename)
+        with open(template_path, 'r') as template_file:
+            return template_file.read()
+
     @staticmethod
     def get_location(user=False):
         res = requests.get("http://ip-api.com/json/?fields=61439")
@@ -45,13 +52,19 @@ class Util:
 
     @staticmethod
     def send_email(data, ):
-        email = EmailMessage(
+        # email = EmailMessage(
+        #     subject = data['email_subject'],
+        #     body = data['email_body'],
+        #     to = [data['email_to']],
+        #     from_email=None,            
+        # )
+        email = EmailMultiAlternatives(
             subject = data['email_subject'],
             body = data['email_body'],
             to = [data['email_to']],
-            from_email=None,            
+            from_email=None,  
         )
-
+        email.content_subtype = "html"  # Main content is now text/html
         email.send()
 
     @staticmethod
