@@ -247,21 +247,25 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class OrderViewRequestSerializer(serializers.ModelSerializer):
     rating = serializers.SerializerMethodField()
+    client = serializers.CharField(source='client.user,', read_only=True)
 
     class Meta:
         model = Order
         fields = [
-            'title','rating','category','status','subcategory','milestones','page_count','created'
+            'title','client','rating','category','status','subcategory','milestones','page_count','created'
         ]
+        ordering = ['-created']
     
     def get_rating(self, obj):
         
         try:
             rating = obj.rating.stars
             message = obj.rating.message
+            created = obj.rating.created
             return {
                 'stars':rating,
-                'message':message
+                'message':message,
+                'created':created,
             }
         except Exception as e: 
             print(e)

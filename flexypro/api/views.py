@@ -18,7 +18,8 @@ from .models import (
     Profile,
     Freelancer, 
     OTP,
-    Bid,   
+    Bid,  
+    Rating, 
     )
 from .serializers import (
     OrderSerializer, 
@@ -860,6 +861,42 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(['Rating'])
+    @action(detail=True, methods=['post'], url_path='rating')
+    def addRating(self, request, pk=None):
+        try:
+            order_id = self.kwargs.get('pk')
+            order = Order.objects.filter(id=order_id,).first()
+            data = self.request.data
+            stars = data.get('stars')
+            message = data.get('message')
+            
+            try:
+                Rating.objects.create(
+                message=message,
+                stars = stars,
+                order = order
+                )  
+                
+            except:
+                return Response({
+                    'error': 'Error adding rating'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            order = Order.objects.filter(id=order_id,).first()
+            serialized_data = OrderSerializer(order)
+            return Response(serialized_data.data)
+            
+        except Order.DoesNotExist:
+            raise NotFound('Order not found')
+        except Exception as e:
+            print(e)
+            return Response({
+                'error':'Error occured'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        
+    
 class BidView(generics.GenericAPIView):
     serializer_class = BidSerializer()
 
