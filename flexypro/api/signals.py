@@ -147,26 +147,24 @@ def order_notification_update(instance, **kwargs):
         except Exception as e:
             print("[Signal] ", e)
 
-# @receiver(post_save, sender=Chat)
-# def create_notification_chat(instance, **kwargs):
-#     try:
-#         # Create notification for new messages
-#         receiver = instance.receiver
-#         sender = instance.sender
+@receiver(post_save, sender=Chat)
+def create_notification_chat(instance, **kwargs):
+    try:
+        # Create notification for new messages
+        receiver = instance.receiver
+        sender = instance.sender
 
-#         # Enable if the unread messages are more than 1        
+        send_message_signal(receiver, sender, instance)
 
-#         send_message_signal(receiver, sender, instance)
+        Notification.objects.create(
+            user = receiver,
+            message = f'You have unread messages from {sender}',
+            order = instance.order
+        )
 
-#         Notification.objects.create(
-#             user = receiver,
-#             message = f'You have unread messages from {sender}',
-#             order = instance.order
-#         )
-
-#     except Exception as e:
-#         print("Error => ", e)
-#         pass
+    except Exception as e:
+        print("Error => ", e)
+        pass
 
 @receiver(post_save, sender=Solution)
 def create_notification_solution(instance, **kwargs):
