@@ -27,6 +27,7 @@ from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework.exceptions import AuthenticationFailed
 from django.db.models import Q
+from .pagination import BiddersPagination
 
 class setNewPasswordSerializer(serializers.ModelSerializer):
     password_1 = serializers.CharField(
@@ -229,7 +230,17 @@ class OrderSerializer(serializers.ModelSerializer):
     
     def get_bidders(self, obj):
         bids =  obj.bid_set.all()
+        # paginator = BiddersPagination()
+        # result_page = paginator.paginate_queryset(bids, self.context['request'])
         bid_serializer = BidSerializer(bids, many=True)
+
+        # return {
+        #     'count': paginator.page.paginator.count,
+        #     'next': paginator.get_next_link(),
+        #     'previous': paginator.get_previous_link(),
+        #     'results': bid_serializer.data
+        # }
+        
         return bid_serializer.data
 
     

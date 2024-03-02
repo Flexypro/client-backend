@@ -63,7 +63,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
-from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination
+from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination, ChatsPagination, SolutionPagination
 from . import utils
 from drf_yasg.utils import swagger_auto_schema
 import stripe
@@ -792,8 +792,17 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_solution(self, request, pk=None):
         order = self.get_object()
         solution = Solution.objects.filter(order=order)
-        serializer = SolutionSerializer(solution, many=True)
-        return Response(serializer.data)
+        paginator = SolutionPagination()
+        results = paginator.paginate_queryset(solution, request)
+        serializer = SolutionSerializer(results, many=True)
+        
+        data = {
+            'count': paginator.page.paginator.count,
+            'next': paginator.get_next_link(),
+            'previous': paginator.get_previous_link(),
+            'results': serializer.data
+        }
+        return Response(data)
     
     @swagger_auto_schema(tags=['Order Solution'])
     @get_solution.mapping.delete
@@ -832,34 +841,57 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='chats')
     def order_chats(self, request, pk=None):
         order_id =self.kwargs.get('pk')
-        order = Order.objects.filter(id=order_id,).first()
-        if order.status != 'Available':
-            order = self.get_object()
-        chats = Chat.objects.filter(order=order)
-        serializer = ChatSerializer(chats, many=True)
-        return Response(serializer.data)
+        try:
+            order = Order.objects.filter(id=order_id,).first()
+            if order.status != 'Available':
+                order = self.get_object()
+            chats = Chat.objects.filter(order=order)
+            paginator = ChatsPagination()
+            results = paginator.paginate_queryset(chats, request)
+            serializer = ChatSerializer(results, many=True)
+            
+            data = {
+                'count': paginator.page.paginator.count,
+                'next': paginator.get_next_link(),
+                'previous': paginator.get_previous_link(),
+                'results': serializer.data
+            }
+            return Response(data)
+        except Order.DoesNotExist:
+            raise NotFound("Order not found")
+        except Exception as e:
+            print(e)
+            return Response({
+                "error":"Can't retrieve chats"
+            }, status = status.HTTP_400_BAD_REQUEST)
     
     @swagger_auto_schema(tags=['Chat'])
     @order_chats.mapping.post
     def create_chat(self, request, pk=None):
-        order_id =self.kwargs.get('pk')
-        order = Order.objects.filter(id=order_id,).first()
-        if order.status != 'Available':
-            order = self.get_object()
-        sender = request.user
-        receiver_username = request.data['receiver']
-        receiver = User.objects.get(username=receiver_username)
+        try:
+            order_id =self.kwargs.get('pk')
+            order = Order.objects.filter(id=order_id,).first()
+            if order.status != 'Available':
+                order = self.get_object()
+            sender = request.user
+            receiver_username = request.data['receiver']
+            receiver = User.objects.get(username=receiver_username)
 
-        serializer = ChatSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(
-                order=order,
-                sender = sender,
-                receiver = receiver
-            )            
+            serializer = ChatSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(
+                    order=order,
+                    sender = sender,
+                    receiver = receiver
+                )            
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(e)
+            return Response({
+                'error':'Failed to create chat'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(['Rating'])
     @action(detail=True, methods=['post'], url_path='rating')
