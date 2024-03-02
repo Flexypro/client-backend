@@ -10,7 +10,7 @@ class TransactionsPagination(PageNumberPagination):
     page_size = 1
 
 class ChatsPagination(PageNumberPagination):
-    page_size = 1
+    page_size = 15
 
 class SolutionPagination(PageNumberPagination):
     page_size = 1
