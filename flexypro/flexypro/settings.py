@@ -196,12 +196,24 @@ MEDIA_URL = '/media/'
 
 # Email setup
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = "Gigitise Pro"
+
+# GMAIL SMTP
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+
+# Security SMTP
+EMAIL_HOST='mail.privateemail.com'
+EMAIL_USE_SSL=True
+EMAIL_PORT=465
+
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+
+# Support SMTP
+
+# Info SMTP
 
 # Redirect app url
 APP_HOME = env('APP_HOME')

@@ -133,7 +133,7 @@ class ResetPasswordView(generics.GenericAPIView):
                 'email_to': user.email
             }
 
-            Util.send_email(data)
+            Util.send_email(data, 'support')
         
             return Response({
                     f'success':'Password reset send to {email}',

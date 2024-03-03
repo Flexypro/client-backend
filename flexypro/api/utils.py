@@ -1,21 +1,17 @@
-import json
-import time
 from django.conf import settings
-from django.core.mail import EmailMessage, EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives
 
-import pyotp
-from rest_framework.response import Response
-from rest_framework import status
 import requests
 import os
+from decouple import config as env
 
 class Util:
 
-    def read_template(filename):
-        template_dir = os.path.join(os.path.dirname(__file__), 'email_templates')
-        template_path = os.path.join(template_dir, filename)
-        with open(template_path, 'r') as template_file:
-            return template_file.read()
+    # def read_template(filename):
+    #     template_dir = os.path.join(os.path.dirname(__file__), 'email_templates')
+    #     template_path = os.path.join(template_dir, filename)
+    #     with open(template_path, 'r') as template_file:
+    #         return template_file.read()
 
     @staticmethod
     def get_location(user=False):
@@ -51,7 +47,20 @@ class Util:
             return {}
 
     @staticmethod
-    def send_email(data, ):
+    def send_email(data, *args):
+        
+        from_email = None        
+        
+        if args:
+            _from = str(args[0]).lower()
+                    
+            if _from == 'support':
+                from_email = env('SUPPORT_FROM_EMAIL')
+            elif _from == 'info':
+                from_email = env('INFO_FROM_EMAIL')
+            else:
+                from_email = None
+            
         # email = EmailMessage(
         #     subject = data['email_subject'],
         #     body = data['email_body'],
@@ -62,10 +71,18 @@ class Util:
             subject = data['email_subject'],
             body = data['email_body'],
             to = [data['email_to']],
-            from_email=None,  
+            from_email=from_email
+            # from_email='security@gigitise.com',  
         )
+        
         email.content_subtype = "html"  # Main content is now text/html
-        email.send()
+        try:
+            email.send()
+        except Exception as e:
+            print(e)
+            print("Error sending email")
+            pass
+            return
 
     @staticmethod
     def generate_otp(self): 
