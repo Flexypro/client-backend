@@ -100,7 +100,7 @@ class Profile(models.Model):
     last_name = models.CharField(max_length=40, null=True, blank=True)
     email = models.EmailField(blank=True, null=True)  
     bio = models.TextField(max_length=240, blank=True, null=True)      
-    profile_photo = models.FileField(upload_to='files/profile-photo', blank=True, null=True)
+    profile_photo = models.FileField(upload_to='files/profile-photo', blank=True, null=True, max_length=255)
     
     
     def __str__(self) -> str:
@@ -132,7 +132,7 @@ class Order(models.Model):
     milestones = models.IntegerField(blank=True, null=True, default=1)
     page_count = models.IntegerField(blank=True, null=True)     
     status = models.CharField(max_length=20, choices=status_choices, default='Available')
-    attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True)
+    attachment = models.FileField(upload_to='files/attachments/', blank=True, null=True, max_length=255)
     amount = models.FloatField()
     paid = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -167,8 +167,8 @@ class Solution(models.Model):
         ('Final', 'Final')
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.OneToOneField(Order, on_delete=models.CASCADE)
-    solution = models.FileField(upload_to='files/solution/', blank=True, null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    solution = models.FileField(upload_to='files/solution/', blank=True, null=True, max_length=255)
     _type = models.CharField(choices=solution_type, default='Final', max_length=20)
     created = models.DateTimeField(auto_now_add=True)
 

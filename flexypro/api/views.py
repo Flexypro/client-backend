@@ -1,6 +1,7 @@
 from base64 import urlsafe_b64encode
 from email import utils
 import json
+import os
 from urllib.parse import parse_qs, urlparse
 from django.http import Http404
 from django.shortcuts import redirect, render
@@ -39,6 +40,7 @@ from .serializers import (
     BidSerializer,
     FreelancerSettingsSerializer,
     ClientSettingsSerializer,
+    OrderListSerializer,
     
 )
 
@@ -63,10 +65,11 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
-from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination, ChatsPagination, SolutionPagination
+from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination, ChatsPagination, SolutionPagination, BiddersPagination
 from . import utils
 from drf_yasg.utils import swagger_auto_schema
 import stripe
+from django.utils.text import slugify
 
 # from django_otp.exceptions import OTPVerificationError
 
@@ -576,6 +579,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @swagger_auto_schema(tags=['Order'])
     def list(self, request, *args, **kwargs):
+        self.serializer_class = OrderListSerializer
         return super().list(request, *args, **kwargs)
 
     @swagger_auto_schema(tags=['Order'])
@@ -786,6 +790,24 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({
                 'error':'Error updating bid'
             }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @swagger_auto_schema(tags=['Bid'])
+    @action(detail=True, methods=['get'], url_path='bidders')
+    def get_bidders(self, request, pk=None):
+        print("Retrieving bidders")
+        order = self.get_object()
+        bidders = Bid.objects.filter(order=order)
+        paginator = BiddersPagination()
+        results = paginator.paginate_queryset(bidders, request)
+        serializer = BidSerializer(results, many=True)
+        
+        data = {
+            'count': paginator.page.paginator.count,
+            'next': paginator.get_next_link(),
+            'previous': paginator.get_previous_link(),
+            'results': serializer.data
+        }
+        return Response(data)
 
     @swagger_auto_schema(tags=['Order Solution'])
     @action(detail=True, methods=['get'], url_path='solution')
@@ -817,7 +839,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             solution = Solution.objects.get(id=solution_id)
             solution.delete()
             return Response({
-                'success':solution_id
+                'id':solution_id
             }, status=status.HTTP_200_OK)
         except Solution.DoesNotExist:
             raise NotFound('Solution not found')
@@ -829,12 +851,14 @@ class OrderViewSet(viewsets.ModelViewSet):
     def post_solution(self, request, pk=None):
         order = self.get_object()
         parser_classes = (MultiPartParser, FormParser)
+        print(request.data)
         serializer = SolutionSerializer(data=request.data, context={'request': request})        
         if serializer.is_valid():
             serializer.save(
                 order=order,                
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print(serializer.error_messages)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
 
     @swagger_auto_schema(tags=['Chat'])

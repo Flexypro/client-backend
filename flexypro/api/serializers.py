@@ -203,6 +203,20 @@ class SolutionSerializer(serializers.ModelSerializer):
         fields = [
             'id','solution', '_type','created'
         ]  
+        ordering = ['-created']
+    
+    def to_internal_value(self, data):
+        if 'solution' in data:
+            data['solution']._name = data['solution']._name[:100]
+        return super().to_internal_value(data)
+
+class PaginatedBiddersSerializer(serializers.ListSerializer):
+    def to_representation(self, data):
+        page = self.context['request'].query_params.get('page', 1)
+        # paginator = self.context['view'].pagination_class()
+        paginator = BiddersPagination()
+        page_data = paginator.paginate_queryset(data, self.context['request'])
+        return super(PaginatedBiddersSerializer, self).to_representation(page_data)
 
 
 class BidSerializer(serializers.ModelSerializer):
@@ -212,6 +226,17 @@ class BidSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bid
         fields = '__all__'
+
+class OrderListSerializer(serializers.ModelSerializer):
+    total_bids = serializers.SerializerMethodField()
+    
+    def get_total_bids(self, obj):
+        return obj.get_total_bids()
+
+    class Meta:
+        model = Order
+        fields = '__all__'
+        list_serializer_class = PaginatedBiddersSerializer
 
 class OrderSerializer(serializers.ModelSerializer): 
     client = ClientSerializer(read_only=True)
@@ -230,22 +255,14 @@ class OrderSerializer(serializers.ModelSerializer):
     
     def get_bidders(self, obj):
         bids =  obj.bid_set.all()
-        # paginator = BiddersPagination()
-        # result_page = paginator.paginate_queryset(bids, self.context['request'])
         bid_serializer = BidSerializer(bids, many=True)
 
-        # return {
-        #     'count': paginator.page.paginator.count,
-        #     'next': paginator.get_next_link(),
-        #     'previous': paginator.get_previous_link(),
-        #     'results': bid_serializer.data
-        # }
-        
         return bid_serializer.data
 
-    
-    # def get_solution(self,obj):
-    #     return obj.solution
+    def to_internal_value(self, data):
+        if 'attachment' in data:
+            data['attachment']._name = data['attachment']._name[:100]
+        return super().to_internal_value(data)
 
 class NotificationSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source='user.username', read_only=True)
