@@ -23,6 +23,7 @@ from .models import (
     Rating, 
     )
 from .serializers import (
+    EmailSubscribersSerializer,
     OrderSerializer, 
     NotificationSerializer,
     ProfileViewRequestSerializer, 
@@ -777,6 +778,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             q = Q(freelancer=freelancer) | Q(order=order)
             try:
                 bid = Bid.objects.filter(q).first()
+                print(bid.client)
                 bid.delete()
                 updated_order = Order.objects.filter(id=order_id,).first()
 
@@ -788,13 +790,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(e)
             return Response({
-                'error':'Error updating bid'
+                'error':'Error deleting bid'
             }, status=status.HTTP_400_BAD_REQUEST)
     
     @swagger_auto_schema(tags=['Bid'])
     @action(detail=True, methods=['get'], url_path='bidders')
     def get_bidders(self, request, pk=None):
-        print("Retrieving bidders")
+        bidderParams = self.request.GET.get('bidder',None)
+        if (bidderParams):
+            try:
+                bid = Bid.objects.get(id=bidderParams)
+                serializer = BidSerializer(bid)
+                print(serializer.data)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except Bid.DoesNotExist:
+                raise NotFound("Bidder not found")
+            
+            except:
+                return Response({"error": "Can't retrieve bidder"},status=status.HTTP_400_BAD_REQUEST)
+            
         order = self.get_object()
         bidders = Bid.objects.filter(order=order)
         paginator = BiddersPagination()
@@ -969,16 +983,19 @@ class HireWriterView(generics.GenericAPIView):
     def post(self, request):
         try:
             bid_id = request.data['bidId']
-            bid = Bid.objects.get(id=bid_id)
-            order = bid.order
-            amount = bid.amount
-            freelancer = bid.freelancer
-            order.amount = amount
-            order.freelancer = freelancer
-            order.status = 'In Progress'
-            order.save()
+            try:
+                bid = Bid.objects.get(id=bid_id)
+                order = bid.order
+                amount = bid.amount
+                freelancer = bid.freelancer
+                order.amount = amount
+                order.freelancer = freelancer
+                order.status = 'In Progress'
+                order.save()
 
-            Bid.objects.filter(order=order).delete()
+                Bid.objects.filter(order=order).delete()
+            except:
+                raise NotFound("Bid not found")
 
             return Response({
                 'success':'Order allocated to freelancer'
@@ -986,7 +1003,7 @@ class HireWriterView(generics.GenericAPIView):
         except:
             return Response({
                 'error':'Error hiring writer'
-            })
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
@@ -1234,6 +1251,23 @@ def send_alert(instance, user):
     
     async_to_sync(send_notification)()
     return Response(response_data)
+
+
+class SubscribeToEmailView(generics.GenericAPIView):
+    
+    serializer_class = EmailSubscribersSerializer
+    
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            
+            return Response({
+                    'success':'Subscription success'
+                })
+        except:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 '''--------------------------To be implemented fully--------------------------------'''
 

@@ -22,6 +22,7 @@ from .views import (
     StripeCheckoutView,
     CaptureStripeStatusView,
     StripeWebHookView,
+    SubscribeToEmailView,
 )
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
@@ -67,7 +68,10 @@ urlpatterns = [
     # Stripe checkout
     path(f'{PREFIX}/order-checkout/', StripeCheckoutView.as_view(), name='stripe-checkout'),
     path(f'{PREFIX}/check-stripe-status', CaptureStripeStatusView.as_view(), name='stripe-payment-status'),
-    path(f'{PREFIX}/webhook', StripeWebHookView.as_view(), name='stripe-payment-webhook')
+    path(f'{PREFIX}/webhook', StripeWebHookView.as_view(), name='stripe-payment-webhook'),
+    
+    # Subscriber list
+    path(f'{PREFIX}/subscribe-letter/', SubscribeToEmailView.as_view(), name='subscriber-list')
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

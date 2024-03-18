@@ -12,6 +12,7 @@ from .models import (
     User,
     OTP,
     Bid,
+    Subscribers
 )
 
 # Register your models here.
@@ -28,7 +29,7 @@ admin.site.register(Solution)
 admin.site.register(Profile)
 admin.site.register(Freelancer)
 admin.site.register(Bid)
-
+admin.site.register(Subscribers)
 # models = [Client, Order, Notification, Rating, Solved, Chat]
 # for model in models:
 #     admin.site.register(model)

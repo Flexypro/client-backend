@@ -8,7 +8,8 @@ from .models import (
     Notification, 
     Rating, 
     Solved,
-    Chat, 
+    Chat,
+    Subscribers, 
     Transaction,
     Solution,
     Profile,
@@ -441,3 +442,8 @@ class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = '__all__'
+        
+class EmailSubscribersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscribers
+        fields = ['email', ]

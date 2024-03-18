@@ -1,5 +1,5 @@
 from django.dispatch import receiver
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, pre_delete
 from .models import (
     Order, 
     Notification, 
@@ -39,11 +39,27 @@ def create_notification_bid(instance, created, **kwargs):
                 user = instance.client.user
                 Notification.objects.create(
                     user = user,
-                    message = f'Your order, {instance.order.title} has new bids',
+                    message = f'Your order, {instance.order.title}, has new bids',
                     order = order
                 )
             except Exception as e:
                 print("Error=> ", e)
+
+@receiver(pre_delete, sender=Bid)
+def create_notification_delete_bid(instance,**kwargs):
+    print("Deleting...", instance.client)
+    user = instance.client.user
+    order = instance.order
+    title  = instance.order.title
+    
+    try:
+        Notification.objects.create(
+            user=user,
+            message = f'Bid for order, {title}, has been deleted by the freelancer',
+            order=order
+        )
+    except Exception as e:
+        print(e)
 
 @receiver(post_save, sender=Order)
 def create_notification_new_order(instance, created, **kwargs):

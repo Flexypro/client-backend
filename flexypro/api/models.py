@@ -229,3 +229,11 @@ class Notification(models.Model):
 
     def __str__(self) -> str:
         return str(self.user) + ' - notification'
+    
+class Subscribers(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(max_length=255, unique=True, db_index=True)
+    joined_at = models.DateTimeField(auto_now_add=True, blank=True)
+    
+    def __str__(self) -> str:
+        return str(self.email)
