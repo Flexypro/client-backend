@@ -91,7 +91,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 class NotificationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
-        print("Trying to connect to notifications")
         if self.room_id:
             self.room_group_name = f'notifications_{self.room_id}'
             await self.channel_layer.group_add(
@@ -104,39 +103,26 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     
     async def new_notification(self, event):
         message = event['message']
-        print(message)
         await self.send(text_data=json.dumps({
             'type':'new_notification',
             'message':message
         }))
 
-
-
-        # print(f'Room name => {self.room_id}\nRoom group => {self.room_group_name}')
-    
-    # async def disconnect(self, code):
-    #     await (self.channel_layer.group_discard)(
-    #         self.room_group_name, self.channel_name
-    #     )
-    #     return super().disconnect(code)
-    
-    # async def receive(self, text_data):
-    #     data = json.loads(text_data)
-    #     message_type = data.get('type')
-
-    #     if message_type == 'new.order':
-    #         self.room_name = data.get('room_name')
-    #         print(self.room_name)
-    #         await self.channel_layer.group_add(
-    #             self.room_name, self.channel_name
-    #         )
-    
-    # async def receive(self, text_data=None, bytes_data=None):
-    #     text_data_json = await json.loads(text_data)
-    #     message = await text_data_json['message']
-    #     print(message)
-
-    #      # Send message to room group
-    #     await async_to_sync(self.channel_layer.group_send)(
-    #         self.room_group_name, {"type": "chat.message", "message": message}
-    #     )
+class BidConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope['url_route']['kwargs']['room_id']   
+        if self.room_id:
+            self.room_group_name = f'bids_{self.room_id}' 
+            await self.channel_layer.group_add(
+                self.room_group_name, self.channel_name
+            )    
+            await self.accept()
+            print('[WS] Bid socket connected')
+    async def new_bid(self, event):
+        message = event['message']
+        print(message)
+        await self.send(text_data=json.dumps({
+            'type': "new_bid",
+            'message': message
+        }))
+        

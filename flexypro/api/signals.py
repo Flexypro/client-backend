@@ -14,7 +14,7 @@ from .models import (
 from .serializers import OrderSerializer
 from django.core.exceptions import ObjectDoesNotExist
 # from django.contrib.auth.models import User
-from .views import new_order_created, send_alert, send_message_signal
+from .views import new_order_created, send_alert, send_bidding_delete, send_message_signal, send_bidding_add
 from django.forms.models import model_to_dict
 
 @receiver(post_save, sender=User)
@@ -44,6 +44,10 @@ def create_notification_bid(instance, created, **kwargs):
                 )
             except Exception as e:
                 print("Error=> ", e)
+        print("Bid created...")
+        user = instance.client.user
+        print(user)
+        send_bidding_add(instance, user)
 
 @receiver(pre_delete, sender=Bid)
 def create_notification_delete_bid(instance,**kwargs):
@@ -60,6 +64,8 @@ def create_notification_delete_bid(instance,**kwargs):
         )
     except Exception as e:
         print(e)
+    
+    send_bidding_delete(instance, user)
 
 @receiver(post_save, sender=Order)
 def create_notification_new_order(instance, created, **kwargs):

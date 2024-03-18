@@ -12,7 +12,8 @@ from .models import (
     Client, 
     Notification, 
     Solved, 
-    Chat, 
+    Chat,
+    Subscribers, 
     User, 
     Transaction, 
     Solution,
@@ -580,7 +581,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @swagger_auto_schema(tags=['Order'])
     def list(self, request, *args, **kwargs):
-        self.serializer_class = OrderListSerializer
+        # self.serializer_class = OrderListSerializer
         return super().list(request, *args, **kwargs)
 
     @swagger_auto_schema(tags=['Order'])
@@ -646,7 +647,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         order_id = self.kwargs.get('pk')  # Assuming 'pk' is used for order ID in the URL
         try:
-
             order = Order.objects.get(id=order_id)    
             serializer = self.get_serializer(order)            
             return Response(serializer.data)
@@ -775,10 +775,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         freelancer = Freelancer.objects.get(user=user) 
 
         try:      
-            q = Q(freelancer=freelancer) | Q(order=order)
+            # q = Q(freelancer=freelancer) | Q(order=order)
             try:
-                bid = Bid.objects.filter(q).first()
-                print(bid.client)
+                bid = Bid.objects.filter(freelancer=freelancer, order=order).first()
                 bid.delete()
                 updated_order = Order.objects.filter(id=order_id,).first()
 
@@ -1252,6 +1251,59 @@ def send_alert(instance, user):
     async_to_sync(send_notification)()
     return Response(response_data)
 
+def send_bidding_add(instance, user):
+    channel_layer = get_channel_layer()
+    room_name = f'bids_{user.id}'
+    serialized_data = BidSerializer(instance).data
+    # print(serialized_data)
+    serialized_data['order'] = str(serialized_data['order'])
+    
+    response_data = {
+        'bid': serialized_data,
+        'delete': False,
+        
+    }
+    
+    async def send_new_bid():
+        try:
+            await channel_layer.group_send(
+                room_name, {
+                    'type':'new.bid',
+                    'message':response_data,
+
+                }
+            )
+        except Exception as e:
+            print("Error ", e)
+    
+    async_to_sync(send_new_bid)()
+    return Response(response_data)
+
+def send_bidding_delete(instance, user):
+    channel_layer = get_channel_layer()
+    room_name = f'bids_{user.id}'
+    serialized_data = BidSerializer(instance).data
+    # print(serialized_data)
+    serialized_data['order'] = str(serialized_data['order'])
+    
+    response_data = {
+        'bid': serialized_data,
+        'delete': True,     
+    }
+    
+    async def send_new_bid():
+        try:
+            await channel_layer.group_send(
+                room_name, {
+                    'type':'new.bid',
+                    'message':response_data,
+                }
+            )
+        except Exception as e:
+            print("Error ", e)
+    
+    async_to_sync(send_new_bid)()
+    return Response(response_data)
 
 class SubscribeToEmailView(generics.GenericAPIView):
     
@@ -1268,7 +1320,17 @@ class SubscribeToEmailView(generics.GenericAPIView):
                 })
         except:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request):
+        
+        try:
+            subs = Subscribers.objects.all()
 
+            serializer = self.serializer_class(subs, many=True)
+            return Response(serializer.data)
+        except:
+            return Response({"error":"Error retrieving email lists"})
+        
+        
 '''--------------------------To be implemented fully--------------------------------'''
 
 
