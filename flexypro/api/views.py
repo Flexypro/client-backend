@@ -991,6 +991,8 @@ class HireWriterView(generics.GenericAPIView):
                 order.freelancer = freelancer
                 order.status = 'In Progress'
                 order.save()
+                                                
+                # notify_freelancer(order, freelancer)
 
                 Bid.objects.filter(order=order).delete()
             except:
@@ -1164,6 +1166,52 @@ class TransactionViewSet(viewsets.ModelViewSet):
         q = Q(_from = user) | Q(_to = user)
         return self.queryset.filter(q).order_by('-timestamp')
 
+
+class SubscribeToEmailView(generics.GenericAPIView):
+    
+    serializer_class = EmailSubscribersSerializer
+    
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            
+            return Response({
+                    'success':'Subscription success'
+                })
+        except:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request):
+        
+        try:
+            subs = Subscribers.objects.all()
+
+            serializer = self.serializer_class(subs, many=True)
+            return Response(serializer.data)
+        except:
+            return Response({"error":"Error retrieving email lists"})
+        
+        
+'''--------------------------To be implemented fully--------------------------------'''
+
+class SolvedViewSet(viewsets.ModelViewSet):
+    queryset = Solved.objects.all()
+    serializer_class = SolvedSerializer
+
+    swagger_schema = None        
+
+    def get_object(self):
+        order_id = self.kwargs.get('pk')
+        queryset = self.filter_queryset(self.get_queryset())
+
+        try:
+            obj = queryset.get(id=order_id)
+            self.check_object_permissions(self.request, obj)
+            return obj
+        except:
+            raise NotFound("The order was not Found")
+
 def new_order_created(order_instance, client,):    
     serialized_data = OrderSerializer(order_instance).data
     response_data = {
@@ -1283,7 +1331,6 @@ def send_bidding_delete(instance, user):
     channel_layer = get_channel_layer()
     room_name = f'bids_{user.id}'
     serialized_data = BidSerializer(instance).data
-    # print(serialized_data)
     serialized_data['order'] = str(serialized_data['order'])
     
     response_data = {
@@ -1305,48 +1352,86 @@ def send_bidding_delete(instance, user):
     async_to_sync(send_new_bid)()
     return Response(response_data)
 
-class SubscribeToEmailView(generics.GenericAPIView):
+def send_alert_order(instance, user):
+    channel_layer = get_channel_layer()
+    room_name = f'hire_{user.id}'
+
+    # Serialize the instance
+    serialized_data = OrderSerializer(instance).data
     
-    serializer_class = EmailSubscribersSerializer
+    # Convert UUID objects to strings and replace them in the serialized data
+    for i, bidder in enumerate(serialized_data['bidders']):
+        serialized_data['bidders'][i]['order'] = str(bidder['order'])
+        
+    response_data = {'order': serialized_data}
     
-    def post(self, request):
-        try:
-            serializer = self.serializer_class(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            
-            return Response({
-                    'success':'Subscription success'
-                })
-        except:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-    def get(self, request):
+    async def send_alert():
+        print("*********SEND*********")
         
+        try:    
+            await channel_layer.group_send(
+                room_name, {
+                    'type': 'hire.order',
+                    'message': response_data
+                }
+            )
+        except Exception as e:
+            print("Error=> ", e)
+
+    # Call the asynchronous function
+    async_to_sync(send_alert)()
+    
+    return Response(response_data)
+
+def send_alert_solution(instance, user):
+    channel_layer = get_channel_layer()
+    room_name = f'solutions_{user.id}'
+    # serialized_data = SolutionSerializer(instance).data
+    # serialized_data['order'] = str(serialized_data['order'])
+    response_data = {
+        'solution': 'serialized_data',
+    }
+    
+    async def send_new_solution():
         try:
-            subs = Subscribers.objects.all()
+            await channel_layer.group_send(
+                room_name, {
+                    'type':'new.solutions',
+                    'message':'response_data',
+                }
+            )
+        except Exception as e:
+            print("Error ", e)
+    
+    async_to_sync(send_new_solution)()
+    return Response(response_data)
 
-            serializer = self.serializer_class(subs, many=True)
-            return Response(serializer.data)
-        except:
-            return Response({"error":"Error retrieving email lists"})
+def send_alert_completed(instance, user):
+    print("starting to send alert")
+    channel_layer = get_channel_layer()
+    room_name = f'completed_{user.id}'
+
+    # Serialize the instance
+    serialized_data = OrderSerializer(instance).data
+    print("Obrtained details...")
+    # Convert UUID objects to strings and replace them in the serialized data
+    # for i, bidder in enumerate(serialized_data['bidders']):
+    #     serialized_data['bidders'][i]['order'] = str(bidder['order'])
         
-        
-'''--------------------------To be implemented fully--------------------------------'''
+    response_data = {'order': serialized_data}
+    
+    async def send_alert():
+        try:    
+            await channel_layer.group_send(
+                room_name, {
+                    'type': 'completed.order',
+                    'message': response_data
+                }
+            )
+        except Exception as e:
+            print("Error=> ", e)
 
-
-class SolvedViewSet(viewsets.ModelViewSet):
-    queryset = Solved.objects.all()
-    serializer_class = SolvedSerializer
-
-    swagger_schema = None        
-
-    def get_object(self):
-        order_id = self.kwargs.get('pk')
-        queryset = self.filter_queryset(self.get_queryset())
-
-        try:
-            obj = queryset.get(id=order_id)
-            self.check_object_permissions(self.request, obj)
-            return obj
-        except:
-            raise NotFound("The order was not Found")
+    # Call the asynchronous function
+    async_to_sync(send_alert)()
+    
+    return Response(response_data)

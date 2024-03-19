@@ -120,9 +120,62 @@ class BidConsumer(AsyncWebsocketConsumer):
             print('[WS] Bid socket connected')
     async def new_bid(self, event):
         message = event['message']
-        print(message)
         await self.send(text_data=json.dumps({
             'type': "new_bid",
             'message': message
         }))
         
+class HireConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope['url_route']['kwargs']['room_id']   
+    
+        if self.room_id:
+            self.room_group_name = f'hire_{self.room_id}' 
+            await self.channel_layer.group_add(
+                self.room_group_name, self.channel_name
+            )    
+            await self.accept()
+            print('[WS] Hire socket connected')
+            
+    async def hire_order(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type':'hire_order',
+            'message':message
+        }))
+        
+class SolutionConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope['url_route']['kwargs']['room_id']   
+        if self.room_id:
+            self.room_group_name = f'solutions_{self.room_id}' 
+            await self.channel_layer.group_add(
+                self.room_group_name, self.channel_name
+            )    
+            await self.accept()
+            print('[WS] Solutions socket connected')
+            
+    async def new_solutions(self, event):
+        
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type':'new_solution',
+            'message':message
+        }))
+        
+class CompletedConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope['url_route']['kwargs']['room_id']   
+        if self.room_id:
+            self.room_group_name = f'completed_{self.room_id}' 
+            await self.channel_layer.group_add(
+                self.room_group_name, self.channel_name
+            )    
+            await self.accept()
+            print('[WS] Completed socket connected')
+    async def completed_order(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type': "completed",
+            'message': message
+        }))

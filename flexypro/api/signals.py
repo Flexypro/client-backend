@@ -14,7 +14,7 @@ from .models import (
 from .serializers import OrderSerializer
 from django.core.exceptions import ObjectDoesNotExist
 # from django.contrib.auth.models import User
-from .views import new_order_created, send_alert, send_bidding_delete, send_message_signal, send_bidding_add
+from .views import new_order_created, send_alert, send_alert_completed, send_alert_order, send_alert_solution, send_bidding_delete, send_message_signal, send_bidding_add
 from django.forms.models import model_to_dict
 
 @receiver(post_save, sender=User)
@@ -43,25 +43,24 @@ def create_notification_bid(instance, created, **kwargs):
                     order = order
                 )
             except Exception as e:
-                print("Error=> ", e)
-        print("Bid created...")
+                print("Error=>....> ", e)
         user = instance.client.user
-        print(user)
         send_bidding_add(instance, user)
 
 @receiver(pre_delete, sender=Bid)
 def create_notification_delete_bid(instance,**kwargs):
-    print("Deleting...", instance.client)
     user = instance.client.user
     order = instance.order
     title  = instance.order.title
+    status = instance.order.status
     
     try:
-        Notification.objects.create(
-            user=user,
-            message = f'Bid for order, {title}, has been deleted by the freelancer',
-            order=order
-        )
+        if status == "Available":
+            Notification.objects.create(
+                user=user,
+                message = f'Bid for order, {title}, has been deleted by the freelancer',
+                order=order
+            )
     except Exception as e:
         print(e)
     
@@ -125,9 +124,11 @@ def order_notification_update(instance, **kwargs):
             ):
                 Notification.objects.create(
                     user = writer_receiver,
-                    message = f'Your bid for order, {instance.title} has been accepted! Start working ASAP',
+                    message = f'Your bid for order, {instance.title}, has been accepted! Start working ASAP',
                     order = instance
                 )
+                
+                send_alert_order(instance, writer_receiver)
 
             # Create notification for writer on updated instructions
             if old_order.instructions != instance.instructions:
@@ -149,14 +150,14 @@ def order_notification_update(instance, **kwargs):
 
             # Create notification for writer on completed order
             if old_order.status != instance.status and (
-                instance.status == 'completed'
+                instance.status == 'Completed'
             ):
-                
                 Notification.objects.create(
                     user = writer_receiver,
                     message=f'Order - {instance.title}, was completed. ',
                     order = instance
                 )
+                send_alert_completed(instance, writer_receiver)
 
             # Create notification for new attachment
             if old_order.attachment != instance.attachment and instance.attachment:
@@ -167,7 +168,7 @@ def order_notification_update(instance, **kwargs):
                 )            
 
         except Exception as e:
-            print("[Signal] ", e)
+            print("[Signal Error] ", e)
 
 @receiver(post_save, sender=Chat)
 def create_notification_chat(instance, **kwargs):
@@ -200,6 +201,8 @@ def create_notification_solution(instance, **kwargs):
             message = f'Solution for your order - {instance.order.title}, has been uploaded.',
             order = instance.order
         )
+        
+        send_alert_solution(instance, client)
     except Exception as e:
         print("Error => ",e)
 
