@@ -232,9 +232,14 @@ class Notification(models.Model):
         return str(self.user) + ' - notification'
     
 class Subscribers(models.Model):
+    reason_choices = [
+        ("New Feature", "New Feature"),
+        ("Emailling", "Emailling")
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(max_length=255, unique=True, db_index=True)
+    email = models.EmailField(max_length=255, blank=True, null=True)
     joined_at = models.DateTimeField(auto_now_add=True, blank=True)
+    reason  = models.CharField(max_length=47, choices=reason_choices, default="Emailling")
     
     def __str__(self) -> str:
         return str(self.email)
