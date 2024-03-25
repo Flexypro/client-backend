@@ -9,4 +9,5 @@ websocket_urlpatterns = [
     re_path(r"ws/hire/(?P<room_id>\w+)/$", HireConsumer.as_asgi()),
     re_path(r"ws/solutions/(?P<room_id>\w+)/$", SolutionConsumer.as_asgi()),
     re_path(r"ws/completed/(?P<room_id>\w+)/$", CompletedConsumer.as_asgi()),
+    re_path(r"ws/support/(?P<room_id>\w+)/$", CompletedConsumer.as_asgi()),
 ]

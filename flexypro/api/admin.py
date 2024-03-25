@@ -12,7 +12,8 @@ from .models import (
     User,
     OTP,
     Bid,
-    Subscribers
+    Subscribers,
+    SupportChat
 )
 
 # Register your models here.
@@ -30,6 +31,7 @@ admin.site.register(Profile)
 admin.site.register(Freelancer)
 admin.site.register(Bid)
 admin.site.register(Subscribers)
+admin.site.register(SupportChat)
 # models = [Client, Order, Notification, Rating, Solved, Chat]
 # for model in models:
 #     admin.site.register(model)

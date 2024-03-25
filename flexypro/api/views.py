@@ -22,6 +22,7 @@ from .models import (
     OTP,
     Bid,  
     Rating, 
+    SupportChat
     )
 from .serializers import (
     EmailSubscribersSerializer,
@@ -30,6 +31,7 @@ from .serializers import (
     ProfileViewRequestSerializer, 
     SolvedSerializer,
     ChatSerializer,
+    SupportChatSerializer,
     TransactionSerializer, 
     SolutionSerializer,
     ProfileSerializer,
@@ -870,7 +872,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             serializer.save(
                 order=order,                
             )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Res
+        ponse(serializer.data, status=status.HTTP_201_CREATED)
         print(serializer.error_messages)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
 
@@ -1171,6 +1174,7 @@ class SubscribeToEmailView(generics.GenericAPIView):
     
     serializer_class = EmailSubscribersSerializer
     
+    @swagger_auto_schema(tags=['Subscribe'])
     def post(self, request):
         try:
             serializer = self.serializer_class(data=request.data)
@@ -1182,6 +1186,7 @@ class SubscribeToEmailView(generics.GenericAPIView):
                 })
         except:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+    @swagger_auto_schema(tags=['Subscribe'])
     def get(self, request):
         
         try:
@@ -1191,7 +1196,69 @@ class SubscribeToEmailView(generics.GenericAPIView):
             return Response(serializer.data)
         except:
             return Response({"error":"Error retrieving email lists"})
-        
+
+
+class SupportChatViewSet(viewsets.ModelViewSet):
+    queryset = SupportChat.objects.all()
+    serializer_class = SupportChatSerializer
+    http_method_names = ['get', 'post',]    
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(tags=['Support'])
+    def list(self, request, *args, **kwargs):
+        try:
+            order = self.request.query_params.get('order', None)
+            chats = SupportChat.objects.filter(order=order)
+            if order:
+                chats = self.queryset.filter(order=order)
+                serializer = self.get_serializer(chats, many=True)                
+                return Response(serializer.data)
+            else:
+                query = Q(sender=request.user) | Q(receiver=request.user)                          
+                chats = self.queryset.filter(query)
+                serializer = self.get_serializer(chats, many=True)
+                return Response(serializer.data)
+        except Exception as e:
+            print(e)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+    
+    @swagger_auto_schema(tags=['Support'])
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=['Support'])
+    def create(self, request, *args, **kwargs):        
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():   
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            print(serializer.errors)
+            return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=['Support'])
+    def perform_create(self, serializer):
+        user = self.request.user
+        receiver_username = self.request.data['receiver']
+        receiver = User.objects.get(username=receiver_username)
+
+        order = self.request.query_params.get('order', None)
+        if Order.objects.filter(id=order).exists():
+            order = Order.objects.get(id=order)
+            if serializer.is_valid():
+                serializer.save(sender=user, receiver=receiver, order=order )
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            print(serializer.errors)
+            
+        else:
+            if serializer.is_valid():                
+                serializer.save(sender=user, receiver=receiver)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            print(serializer.errors)
+            return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
+            
+                
         
 '''--------------------------To be implemented fully--------------------------------'''
 
@@ -1407,17 +1474,11 @@ def send_alert_solution(instance, user):
     return Response(response_data)
 
 def send_alert_completed(instance, user):
-    print("starting to send alert")
     channel_layer = get_channel_layer()
     room_name = f'completed_{user.id}'
 
     # Serialize the instance
     serialized_data = OrderSerializer(instance).data
-    print("Obrtained details...")
-    # Convert UUID objects to strings and replace them in the serialized data
-    # for i, bidder in enumerate(serialized_data['bidders']):
-    #     serialized_data['bidders'][i]['order'] = str(bidder['order'])
-        
     response_data = {'order': serialized_data}
     
     async def send_alert():
@@ -1425,6 +1486,28 @@ def send_alert_completed(instance, user):
             await channel_layer.group_send(
                 room_name, {
                     'type': 'completed.order',
+                    'message': response_data
+                }
+            )
+        except Exception as e:
+            print("Error=> ", e)
+
+    # Call the asynchronous function
+    async_to_sync(send_alert)()
+    
+    return Response(response_data)
+
+def send_alert_support(instance, user):
+    channel_layer = get_channel_layer()
+    room_name = f'support_{user.id}'
+    
+    serialized_data = SupportChatSerializer(instance).data
+    response_data = {'chat': serialized_data}
+    async def send_alert():
+        try:    
+            await channel_layer.group_send(
+                room_name, {
+                    'type': 'support.chat',
                     'message': response_data
                 }
             )

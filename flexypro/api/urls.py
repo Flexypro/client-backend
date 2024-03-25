@@ -5,7 +5,8 @@ from django.conf import settings
 from .views import (
     OrderViewSet, 
     NotificationViewSet, 
-    SolvedViewSet, 
+    SolvedViewSet,
+    SupportChatViewSet, 
     TransactionViewSet,
     ProfileViewSet,
     TokenPairViewClient,
@@ -41,6 +42,8 @@ router.register(f'{PREFIX}/profile', ProfileViewSet, basename='profile')
 router.register(f'{PREFIX}/notifications', NotificationViewSet, basename='notifications')
 router.register(f'{PREFIX}/solved', SolvedViewSet, basename='solved')
 router.register(f'{PREFIX}/transactions', TransactionViewSet, basename='transactions')
+router.register(f'{PREFIX}/support', SupportChatViewSet, basename='support')
+
 urlpatterns = [
     
     # Tokenization

@@ -436,6 +436,14 @@ class ChatSerializer(serializers.ModelSerializer):
         model = Chat
         fields = '__all__'
 
+class SupportChatSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    receiver = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Chat
+        fields = '__all__'
+
 class TransactionSerializer(serializers.ModelSerializer):
     _from = serializers.CharField(source='_from.username', read_only=True)
     _to = serializers.CharField(source='_to.username', read_only=True)

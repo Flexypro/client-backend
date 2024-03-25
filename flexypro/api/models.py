@@ -129,7 +129,7 @@ class Order(models.Model):
         ('In Progress','In Progress'),
         ('Completed','Completed')
     ]
-    subcategory = models.CharField(max_length=40, blank=True, null=True)
+    subject = models.CharField(max_length=40, blank=True, null=True)
     milestones = models.IntegerField(blank=True, null=True, default=1)
     page_count = models.IntegerField(blank=True, null=True)     
     status = models.CharField(max_length=20, choices=status_choices, default='Available')
@@ -243,3 +243,17 @@ class Subscribers(models.Model):
     
     def __str__(self) -> str:
         return str(self.email)
+    
+class SupportChat(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    topic = models.TextField()
+    order = models.ForeignKey(Order, related_name='support_order', on_delete=models.CASCADE, null=True, blank=True)
+    sender = models.ForeignKey(User, related_name='support_sender', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, related_name='support_receiver', on_delete=models.CASCADE) 
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self) -> str:
+        return str(f"Support - FROM: {self.sender} TO: {self.receiver}")
+    
+
