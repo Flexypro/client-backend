@@ -1,10 +1,8 @@
 from base64 import urlsafe_b64encode
 from email import utils
-import json
-import os
 from urllib.parse import parse_qs, urlparse
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 import pyotp
 from rest_framework import viewsets
 from .models import (
@@ -43,9 +41,7 @@ from .serializers import (
     OTPSerializer,
     BidSerializer,
     FreelancerSettingsSerializer,
-    ClientSettingsSerializer,
-    OrderListSerializer,
-    
+    ClientSettingsSerializer,   
 )
 
 from rest_framework.decorators import action
@@ -53,7 +49,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
-from .permissions import IsOwner
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
@@ -67,13 +62,13 @@ from django.urls import reverse
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.http import urlsafe_base64_decode
 from django.contrib.sites.shortcuts import get_current_site
 from .pagination import OrdersPagination, NotificationsPagination, TransactionsPagination, ChatsPagination, SolutionPagination, BiddersPagination
 from . import utils
 from drf_yasg.utils import swagger_auto_schema
 import stripe
-from django.utils.text import slugify
+from django.db import transaction
 
 # from django_otp.exceptions import OTPVerificationError
 
@@ -872,8 +867,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             serializer.save(
                 order=order,                
             )
-            return Res
-        ponse(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         print(serializer.error_messages)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
 
@@ -1203,21 +1197,43 @@ class SupportChatViewSet(viewsets.ModelViewSet):
     serializer_class = SupportChatSerializer
     http_method_names = ['get', 'post',]    
     permission_classes = [IsAuthenticated]
+    pagination_class = ChatsPagination
     
     @swagger_auto_schema(tags=['Support'])
     def list(self, request, *args, **kwargs):
+        paginator = SolutionPagination()
+        
+        # return Response(data)
         try:
             order = self.request.query_params.get('order', None)
             chats = SupportChat.objects.filter(order=order)
+            results = paginator.paginate_queryset(chats, request)
+            serializer = SupportChatSerializer(results, many=True)
+            
+            
             if order:
                 chats = self.queryset.filter(order=order)
-                serializer = self.get_serializer(chats, many=True)                
-                return Response(serializer.data)
+                results = paginator.paginate_queryset(chats, request)
+                serializer = self.get_serializer(results, many=True) 
+                data = {
+                    'count': paginator.page.paginator.count,
+                    'next': paginator.get_next_link(),
+                    'previous': paginator.get_previous_link(),
+                    'results': serializer.data
+                }               
+                return Response(data)
             else:
                 query = Q(sender=request.user) | Q(receiver=request.user)                          
                 chats = self.queryset.filter(query)
-                serializer = self.get_serializer(chats, many=True)
-                return Response(serializer.data)
+                results = paginator.paginate_queryset(chats, request)                
+                serializer = self.get_serializer(results, many=True)
+                data = {
+                    'count': paginator.page.paginator.count,
+                    'next': paginator.get_next_link(),
+                    'previous': paginator.get_previous_link(),
+                    'results': serializer.data
+                }  
+                return Response(data)
         except Exception as e:
             print(e)
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -1238,26 +1254,43 @@ class SupportChatViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(tags=['Support'])
-    def perform_create(self, serializer):
-        user = self.request.user
-        receiver_username = self.request.data['receiver']
-        receiver = User.objects.get(username=receiver_username)
 
+    def perform_create(self, serializer):
+        receiver_username = self.request.data['receiver']
+        
+        user = self.request.user
+        message = self.request.data['message']
+        topic = self.request.data['topic']
+        receiver = User.objects.get(username=receiver_username)        
+        
         order = self.request.query_params.get('order', None)
         if Order.objects.filter(id=order).exists():
             order = Order.objects.get(id=order)
-            if serializer.is_valid():
-                serializer.save(sender=user, receiver=receiver, order=order )
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            print(serializer.errors)
+            created_message = SupportChat.objects.create(
+                message = message,
+                topic=topic,
+                receiver = receiver,
+                order=order,
+                sender=user
+            )
+            print(created_message)
+            serialized_message = self.get_serializer(created_message).data
+            # serializer.save(sender=user, receiver=receiver, order=order )
+            return Response(serialized_message, status=status.HTTP_201_CREATED)
+        else:    
+            created_message = SupportChat.objects.create(
+                message = message,
+                topic=topic,
+                receiver = receiver,
+                sender=user
+            )
             
-        else:
-            if serializer.is_valid():                
-                serializer.save(sender=user, receiver=receiver)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            print(serializer.errors)
-            return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
-            
+            serialized_message = SupportChatSerializer(created_message).data
+            print(serialized_message)
+
+            # Return the serialized data in the HTTP response
+            return Response(data=serialized_message, status=status.HTTP_201_CREATED)
+                        
                 
         
 '''--------------------------To be implemented fully--------------------------------'''

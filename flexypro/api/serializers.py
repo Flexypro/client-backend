@@ -9,7 +9,8 @@ from .models import (
     Rating, 
     Solved,
     Chat,
-    Subscribers, 
+    Subscribers,
+    SupportChat, 
     Transaction,
     Solution,
     Profile,
@@ -441,7 +442,7 @@ class SupportChatSerializer(serializers.ModelSerializer):
     receiver = UserSerializer(read_only=True)
 
     class Meta:
-        model = Chat
+        model = SupportChat
         fields = '__all__'
 
 class TransactionSerializer(serializers.ModelSerializer):
