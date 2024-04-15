@@ -81,7 +81,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def new_chat(self, event):
         message = event["message"]
-
         # Send message WS
         await self.send(text_data=json.dumps({
             'type':'new_message',
@@ -190,10 +189,39 @@ class SupportChatConsumer(AsyncWebsocketConsumer):
             )    
             await self.accept()
             print('[WS] Support socket connected')
+            
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        if data['receiver']:
+            receiver = data['receiver']
+            receiver_id = await self.get_receiver_id(receiver)
+            order_id = data['orderId']
+            room_name = f'support_{receiver_id}'
+
+            await self.channel_layer.group_send(
+                room_name, {
+                    'type': 'typing.status',
+                    'message': {
+                        'typing':True,
+                        'order_id':order_id
+                    }
+                }
+            )    
+        
+    async def typing_status(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type':'typing_status',
+            'message':message
+        }))    
+
+    @database_sync_to_async
+    def get_receiver_id(self, receiver):
+        return User.objects.get(username=receiver).id
+
     async def support_chat(self, event):
         message = event['message']
-        print("[WS] Sending chat")
         await self.send(text_data=json.dumps({
-            'type': "support",
+            'type': "support_chat",
             'message': message
         }))

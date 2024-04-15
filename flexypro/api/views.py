@@ -1139,6 +1139,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     def get_unread_count(self, user):
         return Notification.objects.filter(user=user, read_status=False).count()
+    
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
@@ -1202,38 +1203,28 @@ class SupportChatViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(tags=['Support'])
     def list(self, request, *args, **kwargs):
         paginator = SolutionPagination()
+        user = self.request.user
         
         # return Response(data)
         try:
-            order = self.request.query_params.get('order', None)
-            chats = SupportChat.objects.filter(order=order)
+            # order = self.request.query_params.get('order', None)
+            chats = self.queryset.filter()
             results = paginator.paginate_queryset(chats, request)
             serializer = SupportChatSerializer(results, many=True)
             
             
-            if order:
-                chats = self.queryset.filter(order=order)
-                results = paginator.paginate_queryset(chats, request)
-                serializer = self.get_serializer(results, many=True) 
-                data = {
-                    'count': paginator.page.paginator.count,
-                    'next': paginator.get_next_link(),
-                    'previous': paginator.get_previous_link(),
-                    'results': serializer.data
-                }               
-                return Response(data)
-            else:
-                query = Q(sender=request.user) | Q(receiver=request.user)                          
-                chats = self.queryset.filter(query)
-                results = paginator.paginate_queryset(chats, request)                
-                serializer = self.get_serializer(results, many=True)
-                data = {
-                    'count': paginator.page.paginator.count,
-                    'next': paginator.get_next_link(),
-                    'previous': paginator.get_previous_link(),
-                    'results': serializer.data
-                }  
-                return Response(data)
+            chats = self.queryset.filter(Q(sender=user)|Q(receiver=user))
+            
+            results = paginator.paginate_queryset(chats, request)
+            serializer = self.get_serializer(results, many=True) 
+            data = {
+                'count': paginator.page.paginator.count,
+                'next': paginator.get_next_link(),
+                'previous': paginator.get_previous_link(),
+                'results': serializer.data
+            }               
+            return Response(data)
+
         except Exception as e:
             print(e)
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -1246,52 +1237,47 @@ class SupportChatViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):        
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():   
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            # self.perform_create(serializer)
+            receiver_username = self.request.data['receiver']
+        
+            user = self.request.user
+            message = self.request.data['message']
+            topic = self.request.data['topic']
+            receiver = User.objects.get(username=receiver_username)  
+            order = self.request.query_params.get('order', None)
+            
+            if Order.objects.filter(id=order).exists():
+                order = Order.objects.get(id=order)
+                created_message = SupportChat.objects.create(
+                    message = message,
+                    topic=topic,
+                    receiver = receiver,
+                    order=order,
+                    sender=user
+                )
+                
+                serialized_message = SupportChatSerializer(created_message)
+                # print(serialized_message) 
+                return Response(serialized_message.data)                       
+                
+                # return Response(serialized_message.data, status=status.HTTP_201_CREATED)
+            else:    
+                created_message = SupportChat.objects.create(
+                    message = message,
+                    topic=topic,
+                    receiver = receiver,
+                    sender=user
+                )
+                
+                serialized_message = SupportChatSerializer(created_message).data
+
+                # Return the serialized data in the HTTP response
+                return Response(serialized_message, status=status.HTTP_201_CREATED) 
+                # headers = self.get_success_headers(serializer.data)
+                # return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         else:
             print(serializer.errors)
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
-
-    @swagger_auto_schema(tags=['Support'])
-
-    def perform_create(self, serializer):
-        receiver_username = self.request.data['receiver']
-        
-        user = self.request.user
-        message = self.request.data['message']
-        topic = self.request.data['topic']
-        receiver = User.objects.get(username=receiver_username)        
-        
-        order = self.request.query_params.get('order', None)
-        if Order.objects.filter(id=order).exists():
-            order = Order.objects.get(id=order)
-            created_message = SupportChat.objects.create(
-                message = message,
-                topic=topic,
-                receiver = receiver,
-                order=order,
-                sender=user
-            )
-            print(created_message)
-            serialized_message = self.get_serializer(created_message).data
-            # serializer.save(sender=user, receiver=receiver, order=order )
-            return Response(serialized_message, status=status.HTTP_201_CREATED)
-        else:    
-            created_message = SupportChat.objects.create(
-                message = message,
-                topic=topic,
-                receiver = receiver,
-                sender=user
-            )
-            
-            serialized_message = SupportChatSerializer(created_message).data
-            print(serialized_message)
-
-            # Return the serialized data in the HTTP response
-            return Response(data=serialized_message, status=status.HTTP_201_CREATED)
-                        
-                
         
 '''--------------------------To be implemented fully--------------------------------'''
 
@@ -1375,6 +1361,33 @@ def send_message_signal(receiver, sender, instance):
 
     async_to_sync(send_message)()
     return Response(response_data) 
+
+def new_support_message(receiver, instance):
+    serialized_data = SupportChatSerializer(instance).data
+    serialized_data['order'] = str(serialized_data['order'])
+    response_data = {
+        'sent_message':serialized_data
+    }
+        
+    channel_layer = get_channel_layer()
+    
+    room_name = f'support_{receiver.id}'
+        
+    async def send_support_message():
+        try:
+            await channel_layer.group_send(
+                room_name, {
+                    'type': 'support.chat',
+                    'message': response_data
+                }
+            )
+        except Exception as e:
+            print("Error => ", e)
+
+    async_to_sync(send_support_message)()
+    return Response(response_data) 
+    
+
 
 def send_alert(instance, user):
     channel_layer = get_channel_layer()
@@ -1465,9 +1478,7 @@ def send_alert_order(instance, user):
         
     response_data = {'order': serialized_data}
     
-    async def send_alert():
-        print("*********SEND*********")
-        
+    async def send_alert():        
         try:    
             await channel_layer.group_send(
                 room_name, {
@@ -1530,24 +1541,24 @@ def send_alert_completed(instance, user):
     
     return Response(response_data)
 
-def send_alert_support(instance, user):
-    channel_layer = get_channel_layer()
-    room_name = f'support_{user.id}'
+# def send_alert_support(instance, user):
+#     channel_layer = get_channel_layer()
+#     room_name = f'support_{user.id}'
     
-    serialized_data = SupportChatSerializer(instance).data
-    response_data = {'chat': serialized_data}
-    async def send_alert():
-        try:    
-            await channel_layer.group_send(
-                room_name, {
-                    'type': 'support.chat',
-                    'message': response_data
-                }
-            )
-        except Exception as e:
-            print("Error=> ", e)
+#     serialized_data = SupportChatSerializer(instance).data
+#     response_data = {'chat': serialized_data}
+#     async def send_alert():
+#         try:    
+#             await channel_layer.group_send(
+#                 room_name, {
+#                     'type': 'support.chat',
+#                     'message': response_data
+#                 }
+#             )
+#         except Exception as e:
+#             print("Error=> ", e)
 
-    # Call the asynchronous function
-    async_to_sync(send_alert)()
+#     # Call the asynchronous function
+#     async_to_sync(send_alert)()
     
-    return Response(response_data)
+#     return Response(response_data)

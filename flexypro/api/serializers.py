@@ -282,7 +282,7 @@ class OrderViewRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'title','client','rating','category','status','subcategory','milestones','page_count','created'
+            'title','client','rating','category','status','subject','milestones','page_count','created'
         ]
         ordering = ['-created']
     
@@ -436,14 +436,15 @@ class ChatSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chat
         fields = '__all__'
-
+        ordering = ['-timestamp']
+        
 class SupportChatSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
     receiver = UserSerializer(read_only=True)
 
     class Meta:
         model = SupportChat
-        fields = '__all__'
+        fields = ['id','message','order','sender','receiver', 'timestamp']
 
 class TransactionSerializer(serializers.ModelSerializer):
     _from = serializers.CharField(source='_from.username', read_only=True)

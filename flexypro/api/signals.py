@@ -15,7 +15,7 @@ from .models import (
 from .serializers import OrderSerializer
 from django.core.exceptions import ObjectDoesNotExist
 # from django.contrib.auth.models import User
-from .views import new_order_created, send_alert, send_alert_completed, send_alert_order, send_alert_solution, send_alert_support, send_bidding_delete, send_message_signal, send_bidding_add
+from .views import new_order_created, new_support_message, send_alert, send_alert_completed, send_alert_order, send_alert_solution, send_bidding_delete, send_message_signal, send_bidding_add
 
 @receiver(post_save, sender=User)
 def create_profile(instance, created, **kwargs):
@@ -212,9 +212,9 @@ def notification_send_alert(instance, **kwargs):
     send_alert(instance, user)
 
 @receiver(post_save, sender=SupportChat)
-def send_support_chat_alert(instance, **kwargs):
+def support_new_message(instance, **kwargs):
     try:
         receiver = instance.receiver
-        send_alert_support(instance, receiver)
+        new_support_message(receiver, instance)
     except Exception as e:
         print("[Signal] ", e)
