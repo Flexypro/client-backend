@@ -33,6 +33,8 @@ def create_notification_bid(instance, created, **kwargs):
         order = instance.order
         serializer = OrderSerializer(order)
         serializer_data = serializer.data
+        
+        
 
         if serializer_data['total_bids'] == 1:
             try:

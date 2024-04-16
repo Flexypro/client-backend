@@ -597,7 +597,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         client = Client.objects.get(user = user)
-        serializer.save(client=client, )
+        unique_code = Util.generate_order_code(length=8)
+        serializer.save(client=client, unique_code=unique_code )
 
     def get_queryset(self):
         user = self.request.user

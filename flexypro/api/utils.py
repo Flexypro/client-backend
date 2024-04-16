@@ -2,8 +2,9 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 
 import requests
-import os
+import random,  string
 from decouple import config as env
+from .models import Order
 
 class Util:
 
@@ -12,6 +13,19 @@ class Util:
     #     template_path = os.path.join(template_dir, filename)
     #     with open(template_path, 'r') as template_file:
     #         return template_file.read()
+    
+    @staticmethod
+    def generate_order_code(length=8) -> str:
+        while True:
+            numerics = ''.join(random.choices(string.digits,k=length//2))
+            alphabets = ''.join(random.choices(string.ascii_uppercase,k=length//2))
+            
+            unique_code = numerics +'-'+ alphabets
+            
+            if not Order.objects.filter(unique_code=unique_code).exists():
+                break
+                
+        return str(unique_code)
 
     @staticmethod
     def get_location(user=False):

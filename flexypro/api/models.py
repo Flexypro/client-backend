@@ -118,6 +118,7 @@ class Solved(models.Model):
 
 class Order(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    unique_code = models.CharField(max_length=10, default="000AAA")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, blank=True, null=True)
     freelancer = models.ForeignKey(Freelancer, on_delete=models.CASCADE, blank=True, null=True)
     title = models.CharField(max_length=80)

@@ -90,7 +90,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("192.168.0.102", 6379)],
+            "hosts": [("192.168.100.10", 6379)],
         },
     },
 }
@@ -196,11 +196,6 @@ MEDIA_URL = '/media/'
 
 # Email setup
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-# GMAIL SMTP
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
 
 # Security SMTP
 EMAIL_HOST='mail.privateemail.com'
