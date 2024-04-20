@@ -9,4 +9,6 @@ COPY ./flexypro /backend
 
 WORKDIR /backend
 
+COPY ./entrypoint ./
+
 ENTRYPOINT [ "sh","entrypoint.sh" ]
