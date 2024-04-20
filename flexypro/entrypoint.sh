@@ -5,4 +5,4 @@ python manage.py migrate --no-input
 
 python manage.py collectstatic --no-input
 
-gunicorn flexypro.wsgi:application --bind 0.0.0.0:8000
+gunicorn flexypro.wsgi --bind 0.0.0.0:8000
