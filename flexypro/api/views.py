@@ -536,7 +536,10 @@ class VerifyUserAccountView(generics.GenericAPIView):
                         user.is_verified = True
                         otp_object.used = True
                         otp_object.save()
-                        user.save()
+                        try:
+                            user.save()
+                        except Exception as e:
+                            print(e)
                         return Response({
                             'success':'Account activation success'
                         }, status=status.HTTP_200_OK)
