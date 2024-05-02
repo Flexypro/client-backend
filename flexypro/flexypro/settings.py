@@ -73,6 +73,15 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ORIGIN_WHITELIST = [
+    'https://gigitise.com',
+    'https://clients.gigitise.com',
+    'https://freelancers.gigitise.com',
+    'https://staging-api.gigitise.com',
+    'https://api.gigitise.com',
+]
+
+
 ROOT_URLCONF = 'flexypro.urls'
 
 TEMPLATES = [
